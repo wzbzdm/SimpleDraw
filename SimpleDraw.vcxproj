@@ -160,8 +160,11 @@
     <ResourceCompile Include="SimpleDraw.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\xiazhai\微信截图_20241027161828.bmp" />
+    <Image Include="bitmap1.bmp" />
     <Image Include="choose.bmp" />
     <Image Include="clearimg.bmp" />
+    <Image Include="color.bmp" />
     <Image Include="fitscreen.bmp" />
     <Image Include="SimpleDraw.ico" />
     <Image Include="small.ico" />

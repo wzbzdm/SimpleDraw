@@ -21,7 +21,7 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // 主窗口类名
 // 侧边栏控件
 HWND Edit1, Edit2;
 HWND Button;
-HWND RedSlider, GreenSlider, BlueSlider, WidthSlider, TypeCombo;			// 新增控件变量
+HWND ColorSlider, WidthSlider, TypeCombo;			// 新增控件变量
 
 int WindowMode = 2;			// 1: 画布模式 2: 坐标系模式
 
@@ -223,12 +223,47 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	customSliderWndClass.lpszClassName = L"CustomSliderClass"; // 确保这个名字是唯一的
 	customSliderWndClass.hIconSm = nullptr; // 可选
 
-	ATOM e = RegisterClassExW(&customSliderWndClass); // 注册侧边栏类
+	RegisterClassExW(&customSliderWndClass); // 注册侧边栏类
+
+	// 注册颜色窗口类
+	WNDCLASSEXW customColorWndClass;
+	ZeroMemory(&customColorWndClass, sizeof(WNDCLASSEXW)); // 清空结构体
+	customColorWndClass.cbSize = sizeof(WNDCLASSEXW);
+	customColorWndClass.style = CS_HREDRAW | CS_VREDRAW;
+	customColorWndClass.lpfnWndProc = ColorPickerProc; // 确保这个指针有效
+	customColorWndClass.cbClsExtra = 0;
+	customColorWndClass.cbWndExtra = 0;
+	customColorWndClass.hInstance = hInstance; // 应该是有效的实例句柄
+	customColorWndClass.hIcon = nullptr; // 不需要图标
+	customColorWndClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	customColorWndClass.hbrBackground = hBrushSide; // 确保这个画刷是有效的
+	customColorWndClass.lpszMenuName = nullptr; // 如果不需要菜单
+	customColorWndClass.lpszClassName = L"ColorPickerClass"; // 确保这个名字是唯一的
+	customColorWndClass.hIconSm = nullptr; // 可选
+
+	RegisterClassExW(&customColorWndClass); // 注册侧边栏类
+
+	// 注册类型选择窗口类
+	WNDCLASSEXW customTypeWndClass;
+	ZeroMemory(&customTypeWndClass, sizeof(WNDCLASSEXW)); // 清空结构体
+	customTypeWndClass.cbSize = sizeof(WNDCLASSEXW);
+	customTypeWndClass.style = CS_HREDRAW | CS_VREDRAW;
+	customTypeWndClass.lpfnWndProc = CustomComboxProc; // 确保这个指针有效
+	customTypeWndClass.cbClsExtra = 0;
+	customTypeWndClass.cbWndExtra = 0;
+	customTypeWndClass.hInstance = hInstance; // 应该是有效的实例句柄
+	customTypeWndClass.hIcon = nullptr; // 不需要图标
+	customTypeWndClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	customTypeWndClass.hbrBackground = hBrushSide; // 确保这个画刷是有效的
+	customTypeWndClass.lpszMenuName = nullptr; // 如果不需要菜单
+	customTypeWndClass.lpszClassName = L"TypeComboxClass"; // 确保这个名字是唯一的
+	customTypeWndClass.hIconSm = nullptr; // 可选
+
+	ATOM e = RegisterClassExW(&customTypeWndClass); // 注册侧边栏类
 	DWORD dwError = GetLastError();
-	
+
 	return e;
 }
-
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
@@ -295,6 +330,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // 将实例句柄存储在全局变量中
+	customProperty = DEFAULTDRAWPROPERTY; // 初始化自定义绘图属性
 
 	hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, wstate.width, wstate.height, nullptr, nullptr, hInstance, nullptr);
@@ -461,16 +497,7 @@ void SaveGTXFile() {
 	}
 }
 
-//
-//  函数: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
 //  目标: 处理主窗口的消息。
-//
-//  WM_COMMAND  - 处理应用程序菜单
-//  WM_PAINT    - 绘制主窗口
-//  WM_DESTROY  - 发送退出消息并返回
-//
-//
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
@@ -771,38 +798,53 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 		// 创建输入框和按钮
 		Edit1 = CreateWindow(L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
-			50, 30, 75, 20, hSWnd, NULL, (HINSTANCE)GetWindowLongPtr(hSWnd, GWLP_HINSTANCE), NULL);
+			50, 30, 75, 20, hSWnd, NULL, hInst, NULL);
 
 		Edit2 = CreateWindow(L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER,
-			50, 60, 75, 20, hSWnd, NULL, (HINSTANCE)GetWindowLongPtr(hSWnd, GWLP_HINSTANCE), NULL);
+			50, 60, 75, 20, hSWnd, NULL, hInst, NULL);
 
 		Button = CreateWindow(L"BUTTON", L"确定", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-			25, 90, 100, 20, hSWnd, (HMENU)1, (HINSTANCE)GetWindowLongPtr(hSWnd, GWLP_HINSTANCE), NULL);
+			25, 90, 100, 20, hSWnd, (HMENU)1, hInst, NULL);
 
 		EnableWindow(Edit1, FALSE);
 		EnableWindow(Edit2, FALSE);
 		EnableWindow(Button, FALSE);
 
-		// 创建颜色滑块
+		// 创建类型选择下拉框
+		TypeCombo = CreateWindow(L"TypeComboxClass", NULL, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
+			25, 140, 150, 60, hSWnd, (HMENU)2, hInst, NULL);
 
 		// 创建线宽滑块
 		WidthSlider = CreateWindow(L"CustomSliderClass", NULL, WS_CHILD | WS_VISIBLE,
-			25, 220, 150, 60, hSWnd, (HMENU)3, (HINSTANCE)GetWindowLongPtr(hSWnd, GWLP_HINSTANCE), NULL);
+			25, 220, 150, 60, hSWnd, (HMENU)3, hInst, NULL);
+
+		ColorSlider = CreateWindow(L"ColorPickerClass", NULL, WS_CHILD | WS_VISIBLE,
+			25, 300, 150, 40, hSWnd, (HMENU)4, hInst, NULL);
 
 		DWORD dwError = GetLastError();
-		// 创建绘图类型选择组合框
-		TypeCombo = CreateWindow(L"COMBOBOX", NULL, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
-			25, 190, 100, 200, hSWnd, (HMENU)4, (HINSTANCE)GetWindowLongPtr(hSWnd, GWLP_HINSTANCE), NULL);
-		SendMessage(TypeCombo, CB_ADDSTRING, 0, (LPARAM)L"系统");
-		SendMessage(TypeCombo, CB_ADDSTRING, 0, (LPARAM)L"自定义");
+	
+		break;
+	}
+	case CUSTOM_COLOR_CHANGE:
+	{
+		SetColorWithColorRef(&customProperty, (COLORREF)wParam);
+		break;
+	}
+	case CUSTOM_WIDTH_CHANGE:
+	{
+		SetWidth(&customProperty, (int)wParam);
+		break;
+	}
+	case CUSTOM_TYPE_CHANGE:
+	{
+		SetType(&customProperty, (gctype)wParam);
 		break;
 	}
 	case WM_COMMAND:
 	{
-		// 不处于绘画模式
-		if (!InDraw(mst)) break;
 		// 判断按钮是否被点击
 		if (LOWORD(wParam) == 1) {
+			if (!InDraw(mst)) break;
 			// 确定被点击
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
@@ -820,6 +862,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			SetWindowText(Edit2, L"");
 		}
 		else if (HIWORD(wParam) == EN_CHANGE) {
+			if (!InDraw(mst)) break;
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
 			PostMessage(hCanvasWnd, WM_MOUSEMOVE, 0, MAKELPARAM(pt.x, pt.y));

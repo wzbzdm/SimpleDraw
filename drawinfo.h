@@ -40,6 +40,18 @@ extern "C" {
 		gctype type;	// 绘制方式
 	} DrawUnitProperty;
 
+	void SetColorWithColorRef(DrawUnitProperty *pro, COLORREF r) {
+		pro->color = r;
+	}
+
+	void SetWidth(DrawUnitProperty *pro, int w) {
+		pro->width = w;
+	}
+
+	void SetType(DrawUnitProperty* pro, gctype t) {
+		pro->type = t;
+	}
+
 // 默认为黑色，线宽为1，绘图方式为系统API
 #define DEFAULTDRAWPROPERTY {0, 1, SYSTEM}
 
