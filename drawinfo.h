@@ -12,6 +12,7 @@ extern "C" {
 #include <float.h>
 #include <climits>
 #include <Windows.h>
+#include <cassert>
 
 // 最开始创建点数组时的大小，以后每次增加的大小5
 #define MAX_POINT 20
@@ -244,7 +245,7 @@ extern "C" {
 
 	// 获取存储Curve需要的空间
 	size_t GetCurveSize(MyCurve * curve) {
-		return sizeof(int) * 3 + sizeof(POINT) * curve->endNum;
+		return sizeof(int) * 3 + sizeof(MyPoint) * curve->endNum;
 	}
 
 	void ClearCurve(MyCurve* curve) {
@@ -352,7 +353,7 @@ extern "C" {
 	}
 
 	size_t GetMultilineSize(MyMultiline* ml) {
-		return sizeof(int) * 3 + sizeof(POINT) * ml->endNum;
+		return sizeof(int) * 3 + sizeof(MyPoint) * ml->endNum;
 	}
 
 	void ClearMultiline(MyMultiline* multiline) {
@@ -736,6 +737,7 @@ extern "C" {
 			Byte* temp = data;
 			DrawInfoToBytes(store->img[i], temp, &byteSize);
 			fwrite(data, sizeof(Byte), byteSize, file);
+			assert(needSize == byteSize);
 			free(data); // 释放字节数组
 		}
 

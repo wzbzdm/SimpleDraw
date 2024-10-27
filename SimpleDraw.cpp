@@ -588,11 +588,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case DRAW_CURVE:
 			setType(mst, DRAWCURVE);
 			drawing.type = CURVE;
+			drawing.proper = customProperty;
 
 			break;
 		case DRAW_MUTILINE:
 			setType(mst, DRAWMULTILINE);
 			drawing.type = MULTILINE;
+			drawing.proper = customProperty;
+
 			break;
 
 		case FITSCREEN:
@@ -1017,19 +1020,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			else {
 				// 在固定图像上绘制线
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				MoveToEx(hdcMemFixed, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, NULL);
-				LineTo(hdcMemFixed, point.x, point.y);
-				// 画线
+				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				DrawInfo item;
-				item.type = LINE;
-				item.line.start = start;
-				item.line.end = end;
-				AddDrawInfoToStoreImg(&allImg, item);
+				// 保存线
+				StoreLineTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1043,20 +1039,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			else {
 				// 画圆
-				double r = sqrt((mst.lastLButtonPoint.x - point.x) * (mst.lastLButtonPoint.x - point.x) + (mst.lastLButtonPoint.y - point.y) * (mst.lastLButtonPoint.y - point.y));
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				Ellipse(hdcMemFixed, mst.lastLButtonPoint.x - r, mst.lastLButtonPoint.y - r, mst.lastLButtonPoint.x + r, mst.lastLButtonPoint.y + r);
+				DrawCircle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画圆,第一个点为圆心，第二个点为半径
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				double radis = sqrt((end.x - start.x) * (end.x - start.x) + (end.y - start.y) * (end.y - start.y));
-				DrawInfo item;
-				item.type = CIRCLE;
-				item.circle.center = start;
-				item.circle.radius = radis;
-				AddDrawInfoToStoreImg(&allImg, item);
+				StoreCircleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1070,18 +1058,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			else {
 				// 画矩形
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				Rectangle(hdcMemFixed, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, point.x, point.y);
-				// 画矩形
+				DrawRectangle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
+				// 保存矩形
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				DrawInfo item;
-				item.type = RECTANGLE;
-				item.rectangle.start = start;
-				item.rectangle.end = end;
-				AddDrawInfoToStoreImg(&allImg, item);
+				StoreRectangleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1101,10 +1083,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			else {
 				// 画一条线
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				MoveToEx(hdcMemFixed, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, NULL);
-				LineTo(hdcMemFixed, point.x, point.y);
+				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 将上一个点保存到DrawInfo中
 				mst.lastLButtonPoint = point;
 				MyPoint lastPoint;
@@ -1135,38 +1114,30 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 扩展功能
 			switch (mst.kztype) {
-			case DRAWCX:
-			{
-				// 保存线段
-				ClearPreviewContent(hdcMemPreview);
-				if (cs.count == -1) break;
-				DrawInfo choose = allImg.img[cs.count];
-				if (choose.type != LINE) break;
-				MyPoint start = choose.line.start;
-				MyPoint end = choose.line.end;
-				MyPoint mp;
-				PointToCoordinate(coordinate, point, mp.x, mp.y);
-				// 计算垂线
-				MyPoint p = CalPerpendicular(start, end, mp);
+				case DRAWCX:
+				{
+					// 保存线段
+					ClearPreviewContent(hdcMemPreview);
+					if (cs.count == -1) break;
+					DrawInfo choose = allImg.img[cs.count];
+					if (choose.type != LINE) break;
+					MyPoint start = choose.line.start;
+					MyPoint end = choose.line.end;
+					MyPoint mp;
+					PointToCoordinate(coordinate, point, mp.x, mp.y);
+					// 计算垂线
+					MyPoint p = CalPerpendicular(start, end, mp);
 				
-				// 保存线段
-				DrawInfo line;
-				line.type = LINE;
-				line.line.start = mp;
-				line.line.end = p;
-				AddDrawInfoToStoreImg(&allImg, line);
+					// 保存线段
+					StoreLineTo(&allImg, mp, p, customProperty);
 
-				// 画线
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				POINT pt = mapCoordinate(coordinate, p.x, p.y);
-				MoveToEx(hdcMemFixed, point.x, point.y, NULL);
-				// 从当前位置画线到垂点
-				LineTo(hdcMemFixed, pt.x, pt.y);
-				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
-				break;
-			}
+					// 画线
+					POINT pt = mapCoordinate(coordinate, p.x, p.y);
+					DrawLine(hdcMemFixed, point, pt, &customProperty);
+					// 触发重绘
+					InvalidateRect(hCWnd, NULL, TRUE);
+					break;
+				}
 			}
 		}
 		default:
@@ -1199,24 +1170,25 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			DrawInfo choose = allImg.img[cs.count];
 			switch (choose.type) {
-			case CIRCLE:
-			{
-				// 在预览窗口绘制圆心
-				MyPoint mp = choose.circle.center;
-				POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
-				// 画圆心
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hBlackBrush);
-				Ellipse(hdcMemPreview, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
-				// 显示坐标
-				ShowPointInWindow(hdcMemPreview, mp);
-				CalAndShowPoint();
-				break;
-			}
-			case LINE:
-			{
-				CalAndShowPoint();
-			}
+				case CIRCLE:
+				{
+					// 在预览窗口绘制圆心
+					MyPoint mp = choose.circle.center;
+					POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
+					// 画圆心
+					SelectObject(hdcMemPreview, hPen);
+					SelectObject(hdcMemPreview, hBlackBrush);
+					Ellipse(hdcMemPreview, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
+					// 显示坐标
+					ShowPointInWindow(hdcMemPreview, mp);
+					CalAndShowPoint();
+					break;
+				}
+				case LINE:
+				{
+					CalAndShowPoint();
+					break;
+				}
 			}
 			InvalidateRect(hCWnd, NULL, TRUE);
 			break;
@@ -1227,19 +1199,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (point.x != mst.lastLButtonPoint.x && point.x != mst.lastLButtonPoint.y && mst.lastLButtonPoint.x != -1 && mst.lastLButtonPoint.y != -1) {
 				ClearPreviewContent(hdcMemPreview);
 				// 在固定图像上绘制线
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				MoveToEx(hdcMemFixed, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, NULL);
-				LineTo(hdcMemFixed, point.x, point.y);
+				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画线
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				DrawInfo item;
-				item.type = LINE;
-				item.line.start = start;
-				item.line.end = end;
-				AddDrawInfoToStoreImg(&allImg, item);
+				StoreLineTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1252,20 +1217,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y && mst.lastLButtonPoint.x != -1 && mst.lastLButtonPoint.y != -1) {
 				// 画圆
 				ClearPreviewContent(hdcMemPreview);
-				double r = sqrt((mst.lastLButtonPoint.x - point.x) * (mst.lastLButtonPoint.x - point.x) + (mst.lastLButtonPoint.y - point.y) * (mst.lastLButtonPoint.y - point.y));
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				Ellipse(hdcMemFixed, mst.lastLButtonPoint.x - r, mst.lastLButtonPoint.y - r, mst.lastLButtonPoint.x + r, mst.lastLButtonPoint.y + r);
+				DrawCircle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画圆,第一个点为圆心，第二个点为半径
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				double radis = sqrt((end.x - start.x) * (end.x - start.x) + (end.y - start.y) * (end.y - start.y));
-				DrawInfo item;
-				item.type = CIRCLE;
-				item.circle.center = start;
-				item.circle.radius = radis;
-				AddDrawInfoToStoreImg(&allImg, item);
+				StoreCircleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1278,17 +1235,11 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y && mst.lastLButtonPoint.x != -1 && mst.lastLButtonPoint.y != -1) {
 				// 画矩形
 				ClearPreviewContent(hdcMemPreview);
-				SelectObject(hdcMemFixed, hPen);
-				SelectObject(hdcMemFixed, hNullBrush);
-				Rectangle(hdcMemFixed, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, point.x, point.y);
+				DrawRectangle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
 				PointToCoordinate(coordinate, point, end.x, end.y);
-				DrawInfo item;
-				item.type = RECTANGLE;
-				item.rectangle.start = start;
-				item.rectangle.end = end;
-				AddDrawInfoToStoreImg(&allImg, item);
+				StoreRectangleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1347,6 +1298,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			DrawInfo mline;
 			mline.type = MULTILINE;
+			mline.proper = drawing.proper;
 			InitFromMultiline(&(mline.multiline), &(drawing.multiline));
 			AddDrawInfoToStoreImg(&allImg, mline);
 			// 清空状态
@@ -1365,6 +1317,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				break;
 			}
 			DrawInfo curve;
+			curve.proper = drawing.proper;
 			curve.type = CURVE;
 			InitFromCurve(&(curve.curve), &(drawing.curve));
 			AddDrawInfoToStoreImg(&allImg, curve);
@@ -1381,7 +1334,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			{
 				// GDI+绘图
 				Graphics graphics(hdcMemFixed);
-				Pen pen(Color(255, 0, 0, 0), 1);
+				int color = drawing.proper.color;
+				// 提取 ARGB 组件
+				int red = color & 0xFF;   // 提取 Red 分量
+				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
+				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
+
+				Pen pen(Color(255, red, green, blue), drawing.proper.width);
 				graphics.DrawCurve(&pen, gdiplusPoints, drawing.curve.numPoints);
 			}
 
@@ -1483,11 +1442,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y) {
 				ClearPreviewContent(hdcMemPreview);
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hNullBrush);
-				// 画线
-				MoveToEx(hdcMemPreview, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, NULL);
-				LineTo(hdcMemPreview, point.x, point.y);
+				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
 			}
@@ -1498,11 +1453,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y) {
 				ClearPreviewContent(hdcMemPreview);
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hNullBrush);
 				// 画线
-				MoveToEx(hdcMemPreview, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, NULL);
-				LineTo(hdcMemPreview, point.x, point.y);
+				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
 			}
@@ -1513,11 +1465,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y) {
 				ClearPreviewContent(hdcMemPreview);
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hNullBrush);
 				// 画圆
-				double r = sqrt((mst.lastLButtonPoint.x - point.x) * (mst.lastLButtonPoint.x - point.x) + (mst.lastLButtonPoint.y - point.y) * (mst.lastLButtonPoint.y - point.y));
-				Ellipse(hdcMemPreview, mst.lastLButtonPoint.x - r, mst.lastLButtonPoint.y - r, mst.lastLButtonPoint.x + r, mst.lastLButtonPoint.y + r);
+				DrawCircle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
 			}
@@ -1528,10 +1477,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (point.x != mst.lastLButtonPoint.x && point.y != mst.lastLButtonPoint.y) {
 				ClearPreviewContent(hdcMemPreview);
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hNullBrush);
 				// 画矩形
-				Rectangle(hdcMemPreview, mst.lastLButtonPoint.x, mst.lastLButtonPoint.y, point.x, point.y);
+				DrawRectangle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
 			}
@@ -1554,7 +1501,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				gdiplusPoints[count] = Gdiplus::Point(point.x, point.y);
 				// 画曲线
 				Graphics graphics(hdcMemPreview);
-				Pen pen(Color(255, 0, 0, 0), 1);
+				int color = drawing.proper.color;
+				// 提取 ARGB 组件
+				int red = color & 0xFF;   // 提取 Red 分量
+				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
+				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
+
+				Pen pen(Color(255, red, green, blue), drawing.proper.width);
 				graphics.DrawCurve(&pen, gdiplusPoints, drawing.curve.numPoints + 1);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
@@ -1578,13 +1531,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				MyPoint end = choose.line.end;
 				// 计算垂线
 				MyPoint p = CalPerpendicular(start, end, mp);
-				// 画线
-				SelectObject(hdcMemPreview, hPen);
-				SelectObject(hdcMemPreview, hNullBrush);
 				POINT pt = mapCoordinate(coordinate, p.x, p.y);
-				MoveToEx(hdcMemPreview, point.x, point.y, NULL);
-				// 从当前位置画线到垂点
-				LineTo(hdcMemPreview, pt.x, pt.y);
+				// 画线
+				DrawLine(hdcMemPreview, point, pt, &customProperty);
 				// 触发重绘
 				InvalidateRect(hCWnd, NULL, TRUE);
 				break;
