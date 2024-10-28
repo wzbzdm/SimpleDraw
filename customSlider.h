@@ -22,6 +22,7 @@ public:
     HWND hWnd; // 自定义滑块窗口句柄
     HWND hName; // 名称标签
     HWND hTrackbar; // 滑块控件
+	HFONT hFont;	// 字体
     int value; // 当前滑块值
 
     CustomSlider(HWND parent, LPCWSTR name, int x, int y, int width) {
@@ -37,7 +38,7 @@ public:
             x, y + 30, width, 25, hWnd, NULL, NULL, NULL);
 
 		// 创建字体
-		HFONT hFont = CreateFontW(
+		hFont = CreateFontW(
 			16,                  // 字体高度
 			0,                   // 字体宽度（默认）
 			0,                   // 倾斜度
@@ -69,17 +70,35 @@ public:
         // 处理重绘
         SendMessage(hWnd, WM_PAINT, 0, 0);
     }
+
+	~CustomSlider() {
+		DeleteObject(hFont);
+	}
 };
 
 // 子类化过程函数，拦截 WM_SETFOCUS 消息
-LRESULT CALLBACK TrackbarSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR) {
-	if (message == WM_SETFOCUS) {
+LRESULT CALLBACK TrackbarSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+	switch (message) {
+	case WM_SETFOCUS:
 		// 将焦点设置到父窗口，避免滑块显示虚线框
 		SetFocus(GetParent(hWnd));
 		return 0;
+
+	case WM_KILLFOCUS:
+		// 如果需要，可以在此处理失去焦点时的行为
+		// 比如更新界面，或做一些状态保存
+		break;
+
+	case WM_DESTROY:
+		// 移除子类化过程
+		RemoveWindowSubclass(hWnd, TrackbarSubclassProc, uIdSubclass);
+		break;
 	}
+
+	// 继续处理其他消息
 	return DefSubclassProc(hWnd, message, wParam, lParam);
 }
+
 
 LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	static CustomSlider* slider = nullptr; // 保存自定义滑块指针
@@ -87,7 +106,7 @@ LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 	switch (message) {
 	case WM_CREATE: {
 		// 初始化自定义滑块
-		slider = new CustomSlider(hWnd, L"线条宽度(px):", 0, 0, SLIDEWIDTH);
+		slider = new CustomSlider(hWnd, L"线条宽度:", 0, 0, SLIDEWIDTH);
 		hBrushStaticBackground = CreateSolidBrush(SIDEBARCOLOR); // 创建背景画刷
 		break;
 	}
@@ -109,15 +128,20 @@ LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		if (lParam == (LPARAM)slider->hTrackbar) {
 			// 获取滑块当前位置
 			int pos = SendMessage(slider->hTrackbar, TBM_GETPOS, 0, 0);
-			slider->value = pos;
-			SendMessage(GetParent(hWnd), CUSTOM_WIDTH_CHANGE, pos, 0);
-			InvalidateRect(hWnd, NULL, TRUE); // 触发重绘
+			if (slider->value != pos) {
+				slider->value = pos;
+				SendMessage(GetParent(hWnd), CUSTOM_WIDTH_CHANGE, pos, 0);
+				InvalidateRect(hWnd, NULL, TRUE); // 触发重绘
+			}
 		}
 		break;
 	}
 	case WM_PAINT: {
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
+
+		// 清除背景
+		FillRect(hdc, &ps.rcPaint, hBrushStaticBackground); // 使用自定义背景画刷
 
 		EndPaint(hWnd, &ps);
 		break;
@@ -295,6 +319,7 @@ public:
 	 HWND hWnd;      // 父窗口句柄
 	 HWND Combox;    // 组合框句柄
 	 HWND hName;     // 名称标签句柄
+	 HFONT hFont;	 // 字体
 	 gctype type;    // 当前选择的绘图类型
 
  public:
@@ -313,7 +338,7 @@ public:
 		 );
 
 		 // 创建字体
-		 HFONT hFont = CreateFontW(
+		 hFont = CreateFontW(
 			 16,                  // 字体高度
 			 0,                   // 字体宽度（默认）
 			 0,                   // 倾斜度
@@ -344,6 +369,10 @@ public:
 
 		 // 设置默认选择
 		 SendMessage(Combox, CB_SETCURSEL, 0, 0); // 默认选择第一个选项
+	 }
+
+	 ~CustomCombox() {
+		 DeleteObject(hFont);
 	 }
 
 	 gctype GetType() {

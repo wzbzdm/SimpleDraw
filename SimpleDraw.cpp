@@ -110,11 +110,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	return (int)msg.wParam;
 }
 
-//
-//  函数: MyRegisterClass()
-//
 //  目标: 注册窗口类。
-//
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
 	WNDCLASSEXW wcex;
@@ -269,13 +265,14 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 {
 	// 创建工具栏
 	HWND hToolBar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL,
-		WS_CHILD | WS_VISIBLE | TBSTYLE_TOOLTIPS, // 工具栏风格
+		WS_CHILD | WS_VISIBLE | TBSTYLE_TOOLTIPS | TBSTYLE_WRAPABLE | TBSTYLE_FLAT, // 工具栏风格
 		0, 0, wstate.width, wstate.toolbarHeight, hWndParent, (HMENU)IDC_SIMPLEDRAW, hInst, NULL);
 
 	// 初始化工具栏
 	SendMessage(hToolBar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
-	SendMessage(hToolBar, TB_SETPADDING, 0, MAKELPARAM(8, 8));  // 4像素的填充
+	SendMessage(hToolBar, TB_SETPADDING, 0, MAKELPARAM(20, 20));  // 填充
 	SendMessage(hToolBar, TB_SETBITMAPSIZE, 0, MAKELPARAM(30, 30));
+	SendMessage(hToolBar, TB_SETBUTTONSIZE, 0, MAKELPARAM(50, 50)); // 设置按钮大小以确保图标居中
 
 	// 定义工具栏按钮的位图
 	TBADDBITMAP tbAddBitmap;
@@ -299,26 +296,54 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 	tbAddBitmap.nID = DRAW_MUTILINE; // 工具栏的多边形位图资源
 	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
 
+	tbAddBitmap.nID = DRAW_FMULTI;	// 工具栏的封闭多边形位图资源
+	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
+
 	tbAddBitmap.nID = FITSCREEN; // 工具栏的适应屏幕位图资源
 	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
 
 	tbAddBitmap.nID = CLEARIMG; // 工具栏的清空位图资源
 	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
 
+	const wchar_t* tooltips[] = {
+	L"选择", L"线", L"圆", L"矩形", L"曲线", L"多义线", L"封闭多义线", L"适应屏幕", L"清空"
+	};
+
 	// 定义按钮
-	TBBUTTON tbButtons[8] = {
-		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"选择"},
-		{ MAKELONG(1, 0), DRAW_LINE,   TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"线" },
-		{ MAKELONG(2, 0), DRAW_CIRCLE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"圆" },
-		{ MAKELONG(3, 0), DRAW_RECT, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"矩形" },
-		{ MAKELONG(4, 0), DRAW_CURVE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"曲线" },
-		{ MAKELONG(5, 0), DRAW_MUTILINE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"多义线"},
-		{ MAKELONG(6, 0), FITSCREEN, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"适应屏幕"},
-		{ MAKELONG(7, 0), CLEARIMG, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)L"清空"}
+	TBBUTTON tbButtons[9] = {
+		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0]},
+		{ MAKELONG(1, 0), DRAW_LINE,   TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[1] },
+		{ MAKELONG(2, 0), DRAW_CIRCLE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[2] },
+		{ MAKELONG(3, 0), DRAW_RECT, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[3] },
+		{ MAKELONG(4, 0), DRAW_CURVE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[4] },
+		{ MAKELONG(5, 0), DRAW_MUTILINE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[5] },
+		{ MAKELONG(6, 0), DRAW_FMULTI, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[6] },
+		{ MAKELONG(7, 0), FITSCREEN, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[7] },
+		{ MAKELONG(8, 0), CLEARIMG, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[8] }
 	};
 
 	// 添加按钮到工具栏
 	SendMessage(hToolBar, TB_ADDBUTTONS, sizeof(tbButtons) / sizeof(TBBUTTON), (LPARAM)&tbButtons);
+
+	SendMessage(hToolBar, TB_SETMAXTEXTROWS, 0, 0);
+
+	// 手动设置每个按钮的工具提示文本（悬停提示）
+	HWND hTooltip = (HWND)SendMessage(hToolBar, TB_GETTOOLTIPS, 0, 0);
+	
+	TOOLINFO ti = { 0 };
+	ti.cbSize = sizeof(TOOLINFO);
+	ti.uFlags = TTF_SUBCLASS;
+	ti.hwnd = hToolBar;
+
+	for (int i = 0; i < 9; ++i) {
+		ti.uId = (UINT_PTR)tbButtons[i].idCommand;
+		ti.lpszText = (LPWSTR)tooltips[i];
+		SendMessage(hTooltip, TTM_ADDTOOL, 0, (LPARAM)&ti); // 添加工具提示
+	}
+
+	// 设置工具提示的背景颜色和文本颜色
+	SendMessage(hTooltip, TTM_SETTIPBKCOLOR, (WPARAM)RGB(255, 255, 255), 0); // 背景色为淡黄色
+	SendMessage(hTooltip, TTM_SETTIPTEXTCOLOR, (WPARAM)RGB(0, 0, 0), 0); // 文本色为黑色
 
 	RECT rect;
 	GetClientRect(hWndParent, &rect);  // 获取父窗口的大小
@@ -640,6 +665,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		// 调整侧边栏大小
 		MoveWindow(hSideWnd, wrect.sidebarrect.x, wrect.sidebarrect.y, wrect.sidebarrect.width, wrect.sidebarrect.height, TRUE);
+
+		// 重绘
+
 	}
 	break;
 	case WM_PAINT:

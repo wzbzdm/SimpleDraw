@@ -93,13 +93,13 @@
     <Image Include="clearimg.bmp">
       <Filter>资源文件</Filter>
     </Image>
-    <Image Include="bitmap1.bmp">
+    <Image Include="toolbar6.bmp">
       <Filter>资源文件</Filter>
     </Image>
     <Image Include="color.bmp">
       <Filter>资源文件</Filter>
     </Image>
-    <Image Include="..\..\..\xiazhai\微信截图_20241027161828.bmp">
+    <Image Include="bmp00001.bmp">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

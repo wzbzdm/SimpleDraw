@@ -13,18 +13,27 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	if (pro->type == SYSTEM) {
+	switch (pro->type) {
+	case SYSTEM:
+	{
 		MoveToEx(hdc, start.x, start.y, NULL);
 		LineTo(hdc, end.x, end.y);
 	}
-	
+	break;
+	case CUSTOM:
+	{
+
+	}
+	break;
+	}
+
 
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
 }
 
-int StoreLineTo(StoreImg *sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
+int StoreLineTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
 	DrawInfo item;
 	item.type = LINE;
 	item.line.start = start;
@@ -47,11 +56,19 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	SelectObject(hdc, hNullBrush);
 
 	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
-
-	if (pro->type == SYSTEM) {
+	switch (pro->type) {
+	case SYSTEM:
+	{
 		Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 	}
-	
+	break;
+	case CUSTOM:
+	{
+
+	}
+	break;
+	}
+
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
@@ -100,8 +117,17 @@ int DrawRectangle(HDC hdc, POINT start, POINT end, DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	if (pro->type == SYSTEM) {
+	switch (pro->type) {
+	case SYSTEM:
+	{
 		Rectangle(hdc, start.x, start.y, end.x, end.y);
+	}
+	break;
+	case CUSTOM:
+	{
+
+	}
+	break;
 	}
 
 	DeleteObject(hPen);
@@ -120,11 +146,11 @@ int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty
 	return 0;
 }
 
-int DrawCurve(HDC hdc, POINT *start, int length, DrawUnitProperty* pro) {
+int DrawCurve(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	return 0;
 }
 
-int DrawMultiLine(HDC hdc, POINT *start, int length, DrawUnitProperty* pro) {
+int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	if (pro->type == SYSTEM) {
 		for (int i = 0; i < length - 1; i++) {
 			DrawLine(hdc, start[i], start[i + 1], pro);
