@@ -15,7 +15,6 @@
 #define SIDEBARCOLOR RGB(217, 233, 235)
 
 MyDrawState mst = { CHOOSEIMG, CHOOSEIMG }; // 默认状态
-ChooseState cs = { -1 };
 
 Coordinate coordinate; // 坐标系
 StoreImg allImg; // 存储所有的图形
@@ -409,4 +408,8 @@ void ShowPointInWindow(HDC hdc, POINT p) {
 
 	// 删除自定义字体对象
 	DeleteObject(hFont);
+}
+
+void SetToolBarCheck(HWND toolbar, int id) {
+
 }

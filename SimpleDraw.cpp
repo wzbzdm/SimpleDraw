@@ -40,6 +40,8 @@ HCURSOR chooseCursor;		// 选择光标,十字光标表示可以
 HCURSOR moveCursor;			// 移动光标,四向箭头表示可以移动
 
 DrawUnitProperty customProperty;	// 自定义绘图
+WindowRect wrect;					
+ChooseState cs;
 
 // 此代码模块中包含的函数的前向声明:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -311,7 +313,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
 	// 定义按钮
 	TBBUTTON tbButtons[9] = {
-		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0]},
+		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED | TBSTATE_CHECKED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0]},
 		{ MAKELONG(1, 0), DRAW_LINE,   TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[1] },
 		{ MAKELONG(2, 0), DRAW_CIRCLE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[2] },
 		{ MAKELONG(3, 0), DRAW_RECT, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[3] },
@@ -321,6 +323,18 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 		{ MAKELONG(7, 0), FITSCREEN, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[7] },
 		{ MAKELONG(8, 0), CLEARIMG, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[8] }
 	};
+
+	// 初始化状态管理
+	InitState(cs, 9, 0); // 初始化绘图状态
+	AddIdToState(cs, CHOOSE); // 默认选择按钮
+	AddIdToState(cs, DRAW_LINE);
+	AddIdToState(cs, DRAW_CIRCLE);
+	AddIdToState(cs, DRAW_RECT);
+	AddIdToState(cs, DRAW_CURVE);
+	AddIdToState(cs, DRAW_MUTILINE);
+	AddIdToState(cs, DRAW_FMULTI);
+	AddIdToState(cs, FITSCREEN);
+	AddIdToState(cs, CLEARIMG);
 
 	// 添加按钮到工具栏
 	SendMessage(hToolBar, TB_ADDBUTTONS, sizeof(tbButtons) / sizeof(TBBUTTON), (LPARAM)&tbButtons);
@@ -665,9 +679,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		// 调整侧边栏大小
 		MoveWindow(hSideWnd, wrect.sidebarrect.x, wrect.sidebarrect.y, wrect.sidebarrect.width, wrect.sidebarrect.height, TRUE);
-
-		// 重绘
-
 	}
 	break;
 	case WM_PAINT:

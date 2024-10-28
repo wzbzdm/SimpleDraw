@@ -116,6 +116,10 @@ void RestoreFormLastType(MyDrawState& mst) {
 	mst.type = mst.lastType;
 }
 
+DrawType getType(MyDrawState& mst) {
+	return mst.type;
+}
+
 void setType(MyDrawState& mst, DrawType type) {
 	mst.type = type;
 	switch (type) {
@@ -280,8 +284,23 @@ void PointToCoordinate(Coordinate& coor, POINT& pt, double& x, double& y) {
 }
 
 typedef struct ChooseState {
+	int choose;
 	int count;
+	int* ids;
 } ChooseState;
 
-WindowRect wrect;
+void InitState(ChooseState& cs, int count, int dc) {
+	cs.choose = dc;
+	cs.count = 0;
+	cs.ids = (int*)malloc(sizeof(int) * count);
+	assert(cs.ids != NULL);
+	for (int i = 0; i < count; i++) {
+		cs.ids[i] = 0;
+	}
+}
+
+void AddIdToState(ChooseState& cs, int id) {
+	cs.ids[cs.count++] = id;
+}
+
 #endif // WINDOWSIZE_H
