@@ -325,7 +325,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 	};
 
 	// 初始化状态管理
-	InitState(cs, 9, 0); // 初始化绘图状态
+	InitState(cs, 9, CHOOSE); // 初始化绘图状态
 	AddIdToState(cs, CHOOSE); // 默认选择按钮
 	AddIdToState(cs, DRAW_LINE);
 	AddIdToState(cs, DRAW_CIRCLE);
@@ -605,42 +605,61 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ClearStoreImg(&allImg); // 清空图形
 			ClearPreviewContent(hdcMemPreview); // 清空预览画布
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-			InvalidateRect(hWnd, NULL, TRUE); // 请求重绘窗口
+			InvalidateRect(hCanvasWnd, NULL, TRUE); // 请求重绘窗口
 			break;
 		}
 		case DRAW_LINE:
+			SetToolBarCheck(hToolBar, cs, DRAW_LINE);
 			setType(mst, DRAWLINE);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWLINE, 0);
 
 			break;
 		case DRAW_CIRCLE:
+			SetToolBarCheck(hToolBar, cs, DRAW_CIRCLE);
 			setType(mst, DRAWCIRCLE);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCIRCLE, 0);
 
 			break;
 		case CHOOSE:
+			SetToolBarCheck(hToolBar, cs, CHOOSE);
 			setType(mst, CHOOSEIMG);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, CHOOSEIMG, 0);
 
 			break;
 		case DRAW_RECT:
+			SetToolBarCheck(hToolBar, cs, DRAW_RECT);
 			setType(mst, DRAWRECTANGLE);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWRECTANGLE, 0);
 
 			break;
 		case DRAW_CURVE:
+			SetToolBarCheck(hToolBar, cs, DRAW_CURVE);
 			setType(mst, DRAWCURVE);
 			drawing.type = CURVE;
 			drawing.proper = customProperty;
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
 
 			break;
 		case DRAW_MUTILINE:
+			SetToolBarCheck(hToolBar, cs, DRAW_MUTILINE);
 			setType(mst, DRAWMULTILINE);
 			drawing.type = MULTILINE;
 			drawing.proper = customProperty;
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWMULTILINE, 0);
 
 			break;
+		case DRAW_FMULTI:
+			SetToolBarCheck(hToolBar, cs, DRAW_FMULTI);
+			setType(mst, DRAWFMULTI);
+			drawing.type = FMULTILINE;
+			drawing.proper = customProperty;
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWFMULTI, 0);
 
+			break;
 		case FITSCREEN:
 			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-			InvalidateRect(hWnd, NULL, TRUE); // 请求重绘窗口
+			InvalidateRect(hCanvasWnd, NULL, TRUE); // 请求重绘窗口
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -808,20 +827,6 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 		}
 		break;
 	}
-	case WM_MOUSEMOVE:
-	{
-		if (InDraw(mst)) {
-			EnableWindow(Edit1, TRUE);
-			EnableWindow(Edit2, TRUE);
-			EnableWindow(Button, TRUE);
-		}
-		else {
-			EnableWindow(Edit1, FALSE);
-			EnableWindow(Edit2, FALSE);
-			EnableWindow(Button, FALSE);
-		}
-		break;
-	}
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
@@ -880,6 +885,20 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	case CUSTOM_TYPE_CHANGE:
 	{
 		SetType(&customProperty, (gctype)wParam);
+		break;
+	}
+	case CUSTOM_DRAWSTATE_CHANGE:
+	{
+		if (InDraw(mst)) {
+			EnableWindow(Edit1, TRUE);
+			EnableWindow(Edit2, TRUE);
+			EnableWindow(Button, TRUE);
+		}
+		else {
+			EnableWindow(Edit1, FALSE);
+			EnableWindow(Edit2, FALSE);
+			EnableWindow(Button, FALSE);
+		}
 		break;
 	}
 	case WM_COMMAND:
@@ -1319,7 +1338,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				setType(mst, mst.type);
 			}
 			else {
-				setType(mst, CHOOSEIMG);
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 			}
 			ClearPreviewContent(hdcMemPreview);
 			InvalidateRect(hCWnd, NULL, TRUE);
@@ -1330,7 +1349,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 完成绘制逻辑
 			// 保存绘图信息
 			if (mst.lastLButtonPoint.x == -1 || mst.lastLButtonPoint.y == -1 || !drawing.multiline.points) {
-				setType(mst, CHOOSEIMG);
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearPreviewContent(hdcMemPreview);
 				InvalidateRect(hCWnd, NULL, TRUE);
 				break;
@@ -1352,7 +1371,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 完成绘制逻辑
 			// 保存绘图信息
 			if (mst.lastLButtonPoint.x == -1 || mst.lastLButtonPoint.y == -1 || !drawing.multiline.points) {
-				setType(mst, CHOOSEIMG);
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				break;
 			}
 			DrawInfo curve;

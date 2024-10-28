@@ -63,7 +63,8 @@ extern "C" {
 		CIRCLE,
 		RECTANGLE,
 		CURVE,
-		MULTILINE
+		MULTILINE,
+		FMULTILINE
 	} ImgType;
 
 	typedef struct MyPoint {

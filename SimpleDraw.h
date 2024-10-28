@@ -410,6 +410,10 @@ void ShowPointInWindow(HDC hdc, POINT p) {
 	DeleteObject(hFont);
 }
 
-void SetToolBarCheck(HWND toolbar, int id) {
-
+void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
+	// 取消之前的选择
+	SendMessage(toolbar, TB_CHECKBUTTON, cs.choose, FALSE);
+	// 设置新的选择
+	SendMessage(toolbar, TB_CHECKBUTTON, id, TRUE);
+	SetActiveID(cs, id);
 }

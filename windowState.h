@@ -47,6 +47,7 @@ typedef enum DrawType {
 	DRAWRECTANGLE,
 	DRAWCURVE,
 	DRAWMULTILINE,
+	DRAWFMULTI,
 	MMOUSEMOVE,
 	KZDRAW,				// 扩展功能
 } DrawType;
@@ -284,7 +285,7 @@ void PointToCoordinate(Coordinate& coor, POINT& pt, double& x, double& y) {
 }
 
 typedef struct ChooseState {
-	int choose;
+	int choose;	// id
 	int count;
 	int* ids;
 } ChooseState;
@@ -301,6 +302,10 @@ void InitState(ChooseState& cs, int count, int dc) {
 
 void AddIdToState(ChooseState& cs, int id) {
 	cs.ids[cs.count++] = id;
+}
+
+void SetActiveID(ChooseState &cs, int id) {
+	cs.choose = id;
 }
 
 #endif // WINDOWSIZE_H

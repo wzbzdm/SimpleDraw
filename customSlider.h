@@ -9,10 +9,11 @@
 #define SIDEBORDER	25
 #define SLIDEWIDTH (OTHERW - 2*SIDEBORDER)
 
-#define WM_GET_COLOR		(WM_USER + 1)
-#define CUSTOM_WIDTH_CHANGE (WM_USER + 2)
-#define CUSTOM_COLOR_CHANGE (WM_USER + 3)
-#define CUSTOM_TYPE_CHANGE	(WM_USER + 4)
+#define WM_GET_COLOR			(WM_USER + 1)
+#define CUSTOM_WIDTH_CHANGE		(WM_USER + 2)
+#define CUSTOM_COLOR_CHANGE		(WM_USER + 3)
+#define CUSTOM_TYPE_CHANGE		(WM_USER + 4)
+#define CUSTOM_DRAWSTATE_CHANGE	(WM_USER + 5)
 
 
 LRESULT CALLBACK TrackbarSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR);
@@ -311,8 +312,9 @@ public:
 		 break;
 	 }
 	 default:
-		 return DefSubclassProc(hWnd, message, wParam, lParam);
+		 break;
 	 }
+	 return DefSubclassProc(hWnd, message, wParam, lParam);
  }
 
  class CustomCombox {
