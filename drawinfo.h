@@ -30,8 +30,9 @@ extern "C" {
 
 	// 绘制方式，采用系统api or 自定义api
 	typedef enum gctype {
-		SYSTEM,
-		CUSTOM
+		SYSTEM = 0x0,
+		CUSTOM1 = 0x1,
+		CUSTOM2 = 0x2
 	} gctype;
 
 	// 图元属性

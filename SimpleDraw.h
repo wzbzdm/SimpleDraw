@@ -8,11 +8,11 @@
 #include <CommCtrl.h>
 #include <string>
 
-#define MAINCOLOR  RGB(215, 221, 227)
+#define MAINCOLOR  RGB(230, 230, 230)
 #define SMALLCOLOR RGB(127, 127, 127)
 #define CANVASCOLOR RGB(255, 255, 255)
 #define STATUSBARCOLOR RGB(75, 75, 75)
-#define SIDEBARCOLOR RGB(217, 233, 235)
+#define SIDEBARCOLOR RGB(215, 220, 220)
 
 MyDrawState mst = { CHOOSEIMG, CHOOSEIMG }; // 默认状态
 
