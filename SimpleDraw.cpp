@@ -551,16 +551,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		// 重绘定时器
-		//SetTimer(hWnd, REDRAW, REDRAW_INTERVAL, NULL);
+		SetTimer(hWnd, REDRAW, REDRAW_INTERVAL, NULL);
 		break;
 	}
 	case WM_TIMER:
 	{
-		//if (wParam == REDRAW) {
-		//	// 使用定时器清空背景
-		//	InvalidateRect(hCanvasWnd, NULL, FALSE);
-		//}
-		//break;
+		if (wParam == REDRAW) {
+			// 使用定时器清空背景
+			InvalidateRect(hCanvasWnd, NULL, FALSE);
+		}
+		break;
 	}
 	case WM_COMMAND:
 	{
@@ -812,7 +812,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	case WM_DESTROY:
-		//KillTimer(hWnd, REDRAW);
+		KillTimer(hWnd, REDRAW);
 		PostQuitMessage(0);
 		break;
 	default:
