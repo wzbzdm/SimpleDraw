@@ -354,6 +354,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
             }
             break;
         }
+        case FMULTILINE:
         case MULTILINE:
         {
             for (int j = 0; j < item.multiline.endNum; j++) {

@@ -14,6 +14,9 @@
 #define CUSTOM_COLOR_CHANGE		(WM_USER + 3)
 #define CUSTOM_TYPE_CHANGE		(WM_USER + 4)
 #define CUSTOM_DRAWSTATE_CHANGE	(WM_USER + 5)
+#define CUSTOM_TITLE_CHANGE		(WM_USER + 6)
+#define CUSTOM_SET_NUM			(WM_USER + 7)
+#define CUSTOM_VALUE_CHANGE		(WM_USER + 8)
 
 
 LRESULT CALLBACK TrackbarSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR);
@@ -24,19 +27,20 @@ public:
 	HWND hName; // 名称标签
 	HWND hTrackbar; // 滑块控件
 	HFONT hFont;	// 字体
-	int value; // 当前滑块值
+	INT number; // 当前滑块编号
+	INT value; // 当前滑块值
 
-	CustomSlider(HWND parent, LPCWSTR name, int x, int y, int width) {
+	CustomSlider(HWND parent) {
 		// 创建滑块窗口
 		hWnd = parent;
 
 		// 创建名称标签
-		hName = CreateWindow(L"STATIC", name, WS_CHILD | WS_VISIBLE,
-			x + 5, y + 5, 100, 20, hWnd, NULL, NULL, NULL);
+		hName = CreateWindow(L"STATIC", L"STATIC:", WS_CHILD | WS_VISIBLE,
+			5, 5, 100, 20, hWnd, NULL, NULL, NULL);
 
 		// 创建滑块控件
 		hTrackbar = CreateWindow(TRACKBAR_CLASS, NULL, WS_CHILD | WS_VISIBLE | TBS_NOTICKS | TBS_TOOLTIPS,
-			x, y + 30, width, 25, hWnd, NULL, NULL, NULL);
+			0, 30, SLIDEWIDTH, 25, hWnd, NULL, NULL, NULL);
 
 		// 创建字体
 		hFont = CreateFontW(
@@ -70,6 +74,21 @@ public:
 
 		// 处理重绘
 		SendMessage(hWnd, WM_PAINT, 0, 0);
+	}
+
+	// 设置滑块的默认大小
+	INT SetDefaultValue(int value) {
+		SendMessage(hTrackbar, TBM_SETPOS, TRUE, value);
+
+		return 0;
+	}
+
+	INT SetTitle(LPCWSTR title) {
+		SetWindowText(hName, title);
+		// 应用字体到静态控件
+		SendMessage(hName, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+		return 0;
 	}
 
 	~CustomSlider() {
@@ -107,8 +126,20 @@ LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 	switch (message) {
 	case WM_CREATE: {
 		// 初始化自定义滑块
-		slider = new CustomSlider(hWnd, L"线条宽度:", 0, 0, SLIDEWIDTH);
+		slider = new CustomSlider(hWnd);
 		hBrushStaticBackground = CreateSolidBrush(SIDEBARCOLOR); // 创建背景画刷
+		break;
+	}
+	case CUSTOM_TITLE_CHANGE:
+	{
+		LPCWSTR title = (LPCWSTR)lParam;
+		slider->SetTitle(title);
+		break;
+	}
+	case CUSTOM_VALUE_CHANGE:
+	{
+		int value = (int)lParam;
+		slider->SetDefaultValue(value);
 		break;
 	}
 	case WM_CTLCOLORSTATIC:
@@ -163,9 +194,12 @@ class ColorPicker {
 public:
 	HWND hWnd;		// 窗口句柄
 	HWND bhWnd;		// 按钮句柄
+	HWND hName; // 名称标签
+	HFONT hFont;	
 	COLORREF lastColor; // 上一次颜色
 	COLORREF currentColor; // 当前颜色
 	HBITMAP hBitmap;  // 位图句柄
+	INT number; // 当前滑块编号
 
 	ColorPicker(HWND hwnd) {
 		currentColor = RGB(0, 0, 0); // 默认颜色为黑色
@@ -175,13 +209,50 @@ public:
 		// 加载位图资源
 		hBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_COLOR));
 
+		this->hName = CreateWindow(L"STATIC", L"STATIC:", WS_CHILD | WS_VISIBLE,
+			5, 5, 100, 20, hWnd, NULL, NULL, NULL);
+
+		// 创建字体
+		hFont = CreateFontW(
+			16,                  // 字体高度
+			0,                   // 字体宽度（默认）
+			0,                   // 倾斜度
+			0,                   // 方向
+			FW_MEDIUM,          // 粗体
+			FALSE,              // 斜体
+			FALSE,              // 下划线
+			FALSE,              // 删除线
+			DEFAULT_CHARSET,    // 字符集
+			OUT_DEFAULT_PRECIS, // 输出精度
+			CLIP_DEFAULT_PRECIS,// 剪裁精度
+			ANTIALIASED_QUALITY,// 渲染质量
+			DEFAULT_PITCH | FF_DONTCARE, // 间距和家族
+			L"Arial"            // 字体名称
+		);
+
+		// 应用字体到静态控件
+		SendMessage(hName, WM_SETFONT, (WPARAM)hFont, TRUE);
+
 		this->bhWnd = CreateWindow(
 			L"BUTTON", NULL, WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_BITMAP,
-			110, 0, 40, 40, hWnd, (HMENU)1, NULL, NULL
+			110, 25, 40, 40, hWnd, (HMENU)1, NULL, NULL
 		);
 
 		// 设置按钮的位图
 		SendMessage(bhWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBitmap);
+	}
+
+	INT SetTitle(LPCWSTR title) {
+		SetWindowText(hName, title);
+		// 应用字体到静态控件
+		SendMessage(hName, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+		return 0;
+	}
+
+	INT SetNumber(INT num) {
+		this->number = num;
+		return 0;
 	}
 
 	COLORREF GetColor() {
@@ -240,20 +311,46 @@ public:
 // 窗口过程函数
 LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	static ColorPicker* picker = nullptr;
-
+	static HBRUSH hBrushStaticBackground; // 静态控件背景画刷
 	switch (message) {
 	case WM_CREATE: {
 		picker = new ColorPicker(hWnd);
+		hBrushStaticBackground = CreateSolidBrush(SIDEBARCOLOR); // 创建背景画刷
 		break;
 	}
 	case WM_COMMAND: {
 		if (LOWORD(wParam) == 1) { // 按钮 ID
 			picker->ShowColorDialog();
 			if (picker->ColorChanged()) {
-				SendMessage(GetParent(hWnd), CUSTOM_COLOR_CHANGE, picker->GetColor(), 0);
+				SendMessage(GetParent(hWnd), CUSTOM_COLOR_CHANGE, picker->GetColor(), picker->number);
 			}
 		}
 		break;
+	}
+	case CUSTOM_TITLE_CHANGE:
+	{
+		LPCWSTR title = (LPCWSTR)lParam;
+		picker->SetTitle(title);
+		break;
+	}
+	case CUSTOM_SET_NUM:
+	{
+		INT num = (INT)lParam;
+		picker->SetNumber(num);
+		break;
+	}
+	case WM_CTLCOLORSTATIC:
+	{
+		HDC hdcStatic = (HDC)wParam;
+		HWND hStatic = (HWND)lParam;
+
+		// 设置静态控件的文本颜色
+		SetTextColor(hdcStatic, RGB(0, 0, 0)); // 黑色文字
+		// 设置静态控件的背景模式和颜色
+		SetBkMode(hdcStatic, TRANSPARENT);  // 背景透明
+		SetBkColor(hdcStatic, SIDEBARCOLOR);  // 设置背景颜色
+
+		return (INT_PTR)hBrushStaticBackground; // 返回背景画刷
 	}
 	case WM_GET_COLOR:
 	{
@@ -263,9 +360,13 @@ LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
 
+		// 清除背景
+		FillRect(hdc, &ps.rcPaint, hBrushStaticBackground); // 使用自定义背景画刷
+
 		// 绘制当前颜色
 		RECT rect;
 		GetClientRect(picker->hWnd, &rect);
+		rect.top = 25;
 		rect.right = 100; // 左侧区域宽度
 		FillRect(hdc, &rect, CreateSolidBrush(picker->currentColor));
 
@@ -273,6 +374,7 @@ LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		break;
 	}
 	case WM_DESTROY:
+		DeleteObject(hBrushStaticBackground); // 清理资源
 		delete picker;
 		picker = nullptr;
 		break;
@@ -420,7 +522,6 @@ LRESULT CALLBACK CustomComboxProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM
 		}
 	}
 	break;
-
 	case WM_DRAWITEM:
 	{
 		LPDRAWITEMSTRUCT pdis = (LPDRAWITEMSTRUCT)lParam;

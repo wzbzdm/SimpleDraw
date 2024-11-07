@@ -4,8 +4,28 @@
 
 void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineWidth);
 void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineWidth);
-void MidpointCircle(HDC hdc, int xc, int yc, int r, int color, int lineWidth);
-void BresenhamCircle(HDC hdc, int xc, int yc, int r, int color, int lineWidth);
+void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro);
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro);
+
+int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
+	LOGBRUSH lb;
+	lb.lbStyle = BS_SOLID;
+	lb.lbColor = pro->color; // 线条颜色
+	DWORD dashPattern[2] = { 10, 5 }; // 10个像素实线，5个像素空白
+	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, pro->width, &lb, 2, dashPattern);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+	MoveToEx(hdc, start.x, start.y, NULL);
+	LineTo(hdc, end.x, end.y);
+
+	return 0;
+}
 
 int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
@@ -18,19 +38,19 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	switch (pro->type) {
-	case SYSTEM:
+	switch (DRAWTYPE(pro->type)) {
+	case DRAWSYSTEM:
 	{
 		MoveToEx(hdc, start.x, start.y, NULL);
 		LineTo(hdc, end.x, end.y);
 	}
 	break;
-	case CUSTOM1:
+	case DRAWBRE:
 	{
 		BresenhamLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 	}
 	break;
-	case CUSTOM2:
+	case DRAWMID:
 	{
 		MidpointLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 	}
@@ -66,20 +86,20 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	SelectObject(hdc, hNullBrush);
 
 	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
-	switch (pro->type) {
-	case SYSTEM:
+	switch (DRAWTYPE(pro->type)) {
+	case DRAWSYSTEM:
 	{
 		Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 	}
 	break;
-	case CUSTOM1:
+	case DRAWBRE:
 	{
-		BresenhamCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		BresenhamCircle(hdc, center.x, center.y, r, pro);
 	}
 	break;
-	case CUSTOM2:
+	case DRAWMID:
 	{
-		MidpointCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		MidpointCircle(hdc, center.x, center.y, r, pro);
 	}
 	break;
 	}
@@ -100,20 +120,20 @@ int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	switch (pro->type) {
-	case SYSTEM:
+	switch (DRAWTYPE(pro->type)) {
+	case DRAWSYSTEM:
 	{
 		Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 	}
 	break;
-	case CUSTOM1:
+	case DRAWBRE:
 	{
-		BresenhamCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		BresenhamCircle(hdc, center.x, center.y, r, pro);
 	}
 	break;
-	case CUSTOM2:
+	case DRAWMID:
 	{
-		MidpointCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		MidpointCircle(hdc, center.x, center.y, r, pro);
 	}
 	break;
 	}
@@ -169,11 +189,17 @@ int DrawCurve(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 }
 
 int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
-	if (pro->type == SYSTEM) {
-		for (int i = 0; i < length - 1; i++) {
-			DrawLine(hdc, start[i], start[i + 1], pro);
-		}
+	for (int i = 0; i < length - 1; i++) {
+		DrawLine(hdc, start[i], start[i + 1], pro);
 	}
+	return 0;
+}
+
+int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+	for (int i = 0; i < length; i++) {
+		DrawLine(hdc, start[i], start[(i + 1) % length], pro);
+	}
+
 	return 0;
 }
 
@@ -237,10 +263,12 @@ void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineW
 	}
 }
 
-void MidpointCircle(HDC hdc, int xc, int yc, int r, int color, int lineWidth) {
+void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
 	int x = 0;
 	int y = r;
 	int d = 1 - r;
+	int color = pro->color;
+	int lineWidth = pro->width;
 
 	auto drawThickCirclePoints = [&](int x, int y) {
 		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {
@@ -272,9 +300,11 @@ void MidpointCircle(HDC hdc, int xc, int yc, int r, int color, int lineWidth) {
 	}
 }
 
-void BresenhamCircle(HDC hdc, int xc, int yc, int r, int color, int lineWidth) {
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
 	int x = 0, y = r;
 	int d = 3 - 2 * r;
+	int lineWidth = pro->width;
+	int color = pro->color;
 
 	auto drawThickCirclePoints = [&](int x, int y) {
 		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {

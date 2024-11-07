@@ -66,7 +66,16 @@ typedef struct MyDrawState {
 	};
 } MyDrawState;
 
-bool InDraw(MyDrawState& mst) {
+// 合理绘图状态
+bool DrawStateInit(const MyDrawState& mst) {
+	return mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1;
+}
+
+bool TwoPointDraw(const POINT& p1, const POINT& p2) {
+	return p1.x != p2.x || p1.y != p2.y;
+}
+
+bool InDraw(const MyDrawState& mst) {
 	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
 }
 
@@ -76,6 +85,7 @@ bool CanRefresh(MyDrawState& mst) {
 	case DRAWCIRCLE:
 	case DRAWRECTANGLE:
 	case DRAWCURVE:
+	case DRAWFMULTI:
 	case DRAWMULTILINE:
 	{
 		if (mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1) {

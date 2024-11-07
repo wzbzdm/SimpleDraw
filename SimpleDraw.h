@@ -160,6 +160,19 @@ void drawCoordinate(HDC hdc, POINT center, int width, int height) {
 	DeleteObject(hPen);
 }
 
+POINT* mapMyPoints(MyPoint* mp, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
 void drawDrawInfo(HDC hdc, DrawInfo *item) {
 	switch (item->type) {
 		case LINE:
@@ -196,15 +209,18 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		{
 			// 画多义线
 			if (item->multiline.numPoints > 0) {
-				POINT* points = new POINT[item->multiline.numPoints];
-				int count = 0;
-				for (int i = 0; i < item->multiline.endNum; i++) {
-					MyPoint pt = item->multiline.points[i];
-					if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < item->multiline.numPoints) {
-						points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-					}
-				}
-				DrawMultiLine(hdc, points, count, &item->proper);
+				POINT* points = mapMyPoints(item->multiline.points, item->multiline.numPoints, item->multiline.endNum);
+				DrawMultiLine(hdc, points, item->multiline.numPoints, &item->proper);
+				delete[] points;
+			}
+			break;
+		}
+		case FMULTILINE:
+		{
+			// 画封闭多义线
+			if (item->multiline.numPoints > 0) {
+				POINT* points = mapMyPoints(item->multiline.points, item->multiline.numPoints, item->multiline.endNum);
+				DrawFMultiLine(hdc, points, item->multiline.numPoints, &item->proper);
 				delete[] points;
 			}
 			break;
@@ -293,19 +309,16 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	{
 		// 画多义线
 		if (drawing->multiline.numPoints > 0) {
-			POINT* points = new POINT[drawing->multiline.numPoints];
-			int count = 0;
-			for (int i = 0; i < drawing->multiline.endNum; i++) {
-				MyPoint pt = drawing->multiline.points[i];
-				if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < drawing->multiline.numPoints) {
-					points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-				}
-			}
-			if (count == drawing->multiline.numPoints) {
-				DrawMultiLine(hdc, points, count, &drawing->proper);
-			}
+			POINT* points = mapMyPoints(drawing->multiline.points, drawing->multiline.numPoints, drawing->multiline.endNum);
+			DrawMultiLine(hdc, points, drawing->multiline.numPoints, &drawing->proper);
 			delete[] points;
 		}
+		break;
+	}
+	case FMULTILINE:
+	{
+		POINT* points = mapMyPoints(drawing->multiline.points, drawing->multiline.numPoints, drawing->multiline.endNum);
+		DrawFMultiLine(hdc, points, drawing->multiline.numPoints, &drawing->proper);
 		break;
 	}
 	default:
@@ -327,13 +340,13 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 		POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
 		SetCoordinate(coordinate, center, DEFAULTRADIUS); // 设置坐标系参数
 	}
-	// 加载坐标系
+	// 加载坐标系, 最底层
 	drawCoordinate(hdc, coordinate.center, rect.right, rect.bottom);
 
-	// 加载保存的图形
+	// 加载保存的图形，第一层
 	drawStoreImg(hdc, &allImg);
 
-	// 加载正在绘制的图形
+	// 加载正在绘制的图形，第二层
 	drawDrawing(hdc, &drawing);
 }
 

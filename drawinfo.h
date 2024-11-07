@@ -28,22 +28,64 @@ extern "C" {
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
 
+			
+#define DRAWSYSTEM			0x1
+#define DRAWBRE				0x2
+#define DRAWMID				0x3
+#define PADSYSTEM			0x10
+#define PADSCAN				0x20
+#define PADZL				0x30
+#define DRAWTYPE(gc)		(gc & 0xf)
+#define PADTYPE(gc)			(gc & 0xf0)
+#define ISDRAWSYSTEM(gc)	(gc & 0xf == DRAWSYSTEM)
+#define ISDRAWBRE(gc)		(gc & 0Xf == DRAWBRE)
+#define ISDRAWMID(gc)		(gc & 0xf == DRAWMID)
+#define ISPADSYSTEM(gc)		(gc & 0xf0 == PADSYSTEM)
+#define ISPADSCAN(gc)		(gc & 0xf0 == PADSCAN)
+#define ISPADZL(gc)			(gc & 0xf0 == PADZL)
+
 	// 绘制方式，采用系统api or 自定义api
 	typedef enum gctype {
-		SYSTEM = 0x0,
-		CUSTOM1 = 0x1,
-		CUSTOM2 = 0x2
+		DRAWGC	= 0x1,		// 系统画线
+		PADGC	= 0x10,
+		SYSTEM	= 0x1,
+		CUSTOM1 = 0x2,
+		CUSTOM2 = 0x3,
+		DEFAULTTYPE = DRAWSYSTEM | PADSYSTEM
 	} gctype;
+
+	void SetDrawTypeR(gctype *gc, int type) {
+		*gc = (gctype)(*gc & 0xf);
+		*gc = (gctype)(*gc | type);
+	}
+
+	gctype SetDrawType(gctype gc, int type) {
+		return (gctype)((gc & 0xf) | type);
+	}
+
+	void SetPadTypeR(gctype *gc, int type) {
+		*gc = (gctype)(*gc & 0xf0);
+		*gc = (gctype)(*gc | type);
+	}
+
+	gctype SetPadType(gctype gc, int type) {
+		return (gctype)((gc & 0xf0) | type);
+	}
 
 	// 图元属性
 	typedef struct DrawUnitProperty {
-		int color;
+		unsigned int color;
+		unsigned int bgcolor;
 		int width;
 		gctype type;	// 绘制方式
 	} DrawUnitProperty;
 
 	void SetColorWithColorRef(DrawUnitProperty *pro, COLORREF r) {
 		pro->color = r;
+	}
+
+	void SetBgColorWithColorRef(DrawUnitProperty* pro, COLORREF r) {
+		pro->bgcolor = r;
 	}
 
 	void SetWidth(DrawUnitProperty *pro, int w) {
@@ -54,8 +96,11 @@ extern "C" {
 		pro->type = t;
 	}
 
-// 默认为黑色，线宽为1，绘图方式为系统API
-#define DEFAULTDRAWPROPERTY {0, 1, SYSTEM}
+// 绘图方式为系统API
+#define DEFAULTLINEWID		2				// 线宽为2
+#define DEFAULTLINECOR		0				// 黑色
+#define DEFAULTPADCOR		0xff000000		// 透明
+#define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
 
 	// 图元类型
 	typedef enum ImgType {
@@ -65,7 +110,7 @@ extern "C" {
 		RECTANGLE,
 		CURVE,
 		MULTILINE,
-		FMULTILINE
+		FMULTILINE	// 结构与MULTILINE相同
 	} ImgType;
 
 	typedef struct MyPoint {
@@ -552,6 +597,7 @@ extern "C" {
 
 	void PropertyToByte(const DrawUnitProperty* pro, Byte** buffer, int* index) {
 		IntToByte(pro->color, buffer, index);
+		IntToByte(pro->bgcolor, buffer, index);
 		IntToByte(pro->width, buffer, index);
 		IntToByte(pro->type, buffer, index);
 	}
@@ -559,6 +605,7 @@ extern "C" {
 	DrawUnitProperty ByteToProperty(Byte* buffer, int* size) {
 		DrawUnitProperty dup;
 		dup.color = byteToInt(buffer, size);
+		dup.bgcolor = byteToInt(buffer, size);
 		dup.width = byteToInt(buffer, size);
 		dup.type = (gctype)byteToInt(buffer, size);
 
