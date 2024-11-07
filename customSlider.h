@@ -33,6 +33,7 @@ public:
 	CustomSlider(HWND parent) {
 		// 创建滑块窗口
 		hWnd = parent;
+		number = -1;
 
 		// 创建名称标签
 		hName = CreateWindow(L"STATIC", L"STATIC:", WS_CHILD | WS_VISIBLE,

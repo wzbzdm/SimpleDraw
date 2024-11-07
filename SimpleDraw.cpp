@@ -7,6 +7,10 @@
 
 #define MAX_LOADSTRING 100
 
+// 定时器
+#define REDRAW 1
+#define REDRAW_INTERVAL 16 // 16毫秒，即约60 FPS
+
 // 全局变量:
 HINSTANCE hInst;                                // 当前实例
 HWND hWnd;									    // 主窗口句柄
@@ -541,6 +545,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
+	case WM_CREATE:
+	{
+		// 重绘定时器
+		//SetTimer(hWnd, REDRAW, REDRAW_INTERVAL, NULL);
+		break;
+	}
+	case WM_TIMER:
+	{
+		//if (wParam == REDRAW) {
+		//	// 使用定时器清空背景
+		//	InvalidateRect(hCanvasWnd, NULL, FALSE);
+		//}
+		//break;
+	}
 	case WM_COMMAND:
 	{
 		int wmId = LOWORD(wParam);
@@ -792,6 +810,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	case WM_DESTROY:
+		//KillTimer(hWnd, REDRAW);
 		PostQuitMessage(0);
 		break;
 	default:

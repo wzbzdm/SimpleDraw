@@ -16,6 +16,9 @@
     <Filter Include="doc">
       <UniqueIdentifier>{abe70728-3bf7-40f6-b437-9607ad44675c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="config">
+      <UniqueIdentifier>{24b0efa3-4cf1-4471-9f0e-4a88c77849fb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -115,6 +118,9 @@
     </None>
     <None Include="README.md">
       <Filter>doc</Filter>
+    </None>
+    <None Include=".gitignore">
+      <Filter>config</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -175,6 +175,7 @@
     <Image Include="toolbar5.bmp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
     <None Include="cursor1.cur" />
     <None Include="drawing.cur" />
     <None Include="idcmove.cur" />
