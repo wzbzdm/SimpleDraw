@@ -1099,11 +1099,11 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			int canvasWidth = canvasRect.right - canvasRect.left;
 			int canvasHeight = canvasRect.bottom - canvasRect.top;
 
-			// 先将固定的图形绘制到窗口
-			BitBlt(hdc, 0, 0, canvasWidth, canvasHeight, hdcMemFixed, 0, 0, SRCCOPY);
+			// 先将固定的图形叠加到预览hdc中到窗口
+			BitBlt(hdcMemPreview, 0, 0, canvasWidth, canvasHeight, hdcMemFixed, 0, 0, SRCAND);
 
 			// 然后将预览内容叠加到窗口上
-			BitBlt(hdc, 0, 0, canvasWidth, canvasHeight, hdcMemPreview, 0, 0, SRCAND);
+			BitBlt(hdc, 0, 0, canvasWidth, canvasHeight, hdcMemPreview, 0, 0, SRCCOPY);
 
 			EndPaint(hCWnd, &ps);
 			break;
