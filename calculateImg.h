@@ -157,7 +157,7 @@ MyPoint CalPerpendicular(MyPoint start, MyPoint end, MyPoint mp) {
     return res;
 }
 
-// 图形计算逻辑
+// 图形计算逻辑, 交点
 void CalculateImg(StoreImg& allimg, int count) {
     CalculatePoints.clear();
     DrawInfo choose = allimg.img[count];
@@ -319,12 +319,28 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     for (int i = 0; i < img.endNum; i++) {
         DrawInfo item = img.img[i];
         switch (item.type) {
+        // MyLine和MyRectangle结构相同
+        case RECTANGLE:
         case LINE:
         {
-            if (item.line.start.x < minX) minX = item.line.start.x;
-            if (item.line.start.y < minY) minY = item.line.start.y;
-            if (item.line.end.x > maxX) maxX = item.line.end.x;
-            if (item.line.end.y > maxY) maxY = item.line.end.y;
+            if (item.line.start.x < item.line.end.x) {
+                if (item.line.start.x < minX) minX = item.line.start.x;
+                if (item.line.end.x > maxX) maxX = item.line.end.x;
+            }
+            else {
+                if (item.line.end.x < minX) minX = item.line.end.x;
+                if (item.line.start.x > maxX) maxX = item.line.start.x;
+            }
+
+            if (item.line.start.y < item.line.end.y) {
+                if (item.line.start.y < minY) minY = item.line.start.y;
+                if (item.line.end.y > maxY) maxY = item.line.end.y;
+            }
+            else {
+                if (item.line.end.y < minY) minY = item.line.end.y;
+                if (item.line.start.y > maxY) maxY = item.line.start.y;
+            }
+            
             break;
         }
         case CIRCLE:
@@ -333,14 +349,6 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
             if (item.circle.center.y - item.circle.radius < minY) minY = item.circle.center.y - item.circle.radius;
             if (item.circle.center.x + item.circle.radius > maxX) maxX = item.circle.center.x + item.circle.radius;
             if (item.circle.center.y + item.circle.radius > maxY) maxY = item.circle.center.y + item.circle.radius;
-            break;
-        }
-        case RECTANGLE:
-        {
-            if (item.rectangle.start.x < minX) minX = item.rectangle.start.x;
-            if (item.rectangle.start.y < minY) minY = item.rectangle.start.y;
-            if (item.rectangle.end.x > maxX) maxX = item.rectangle.end.x;
-            if (item.rectangle.end.y > maxY) maxY = item.rectangle.end.y;
             break;
         }
         case CURVE:

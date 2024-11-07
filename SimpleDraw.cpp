@@ -711,6 +711,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			break;
 		case FITSCREEN:
+			ClearPreviewContent(hdcMemPreview);
 			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			NeedRedraw();
