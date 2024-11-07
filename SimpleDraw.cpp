@@ -9,7 +9,10 @@
 
 // 定时器
 #define REDRAW 1
-#define REDRAW_INTERVAL 16 // 16毫秒，即约60 FPS
+#define REDRAW_INTERVAL 8 // 8毫秒
+bool needRedraw = true;
+#define NeedRedraw()	(needRedraw = true)
+#define Redraw()		(needRedraw = false)
 
 // 全局变量:
 HINSTANCE hInst;                                // 当前实例
@@ -44,7 +47,7 @@ HCURSOR chooseCursor;		// 选择光标,十字光标表示可以
 HCURSOR moveCursor;			// 移动光标,四向箭头表示可以移动
 
 DrawUnitProperty customProperty;	// 自定义绘图
-WindowRect wrect;					
+WindowRect wrect;
 ChooseState cs;
 
 // 此代码模块中包含的函数的前向声明:
@@ -347,7 +350,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
 	// 手动设置每个按钮的工具提示文本（悬停提示）
 	HWND hTooltip = (HWND)SendMessage(hToolBar, TB_GETTOOLTIPS, 0, 0);
-	
+
 	TOOLINFO ti = { 0 };
 	ti.cbSize = sizeof(TOOLINFO);
 	ti.uFlags = TTF_SUBCLASS;
@@ -548,16 +551,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		// 重绘定时器
-		//SetTimer(hWnd, REDRAW, REDRAW_INTERVAL, NULL);
+		SetTimer(hWnd, REDRAW, REDRAW_INTERVAL, NULL);
 		break;
 	}
 	case WM_TIMER:
 	{
-		//if (wParam == REDRAW) {
-		//	// 使用定时器清空背景
-		//	InvalidateRect(hCanvasWnd, NULL, FALSE);
-		//}
-		//break;
+		if (wParam == REDRAW) {
+			if (needRedraw) {
+				// 使用定时器清空背景
+				InvalidateRect(hCanvasWnd, NULL, FALSE);
+				Redraw();
+			}
+		}
+		break;
 	}
 	case WM_COMMAND:
 	{
@@ -629,7 +635,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				case OPENOK:
 					FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 					RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-					InvalidateRect(hWnd, NULL, TRUE); // 请求重绘窗口
+					NeedRedraw();
 					break;
 				case FILEHEADERINVALID:
 					UpdateStatusBarText(L"文件头部无效");
@@ -653,7 +659,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ClearStoreImg(&allImg); // 清空图形
 			ClearPreviewContent(hdcMemPreview); // 清空预览画布
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-			InvalidateRect(hCanvasWnd, NULL, TRUE); // 请求重绘窗口
+			NeedRedraw();
 			break;
 		}
 		case DRAW_LINE:
@@ -707,7 +713,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case FITSCREEN:
 			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-			InvalidateRect(hCanvasWnd, NULL, TRUE); // 请求重绘窗口
+			NeedRedraw();
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -803,14 +809,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		FileToStoreImg(&allImg, filePath);
 		FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 		RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-		InvalidateRect(hWnd, NULL, TRUE); // 请求重绘窗口
-
+		NeedRedraw();
 		// 释放内存
 		DragFinish(hDrop);
 		break;
 	}
 	case WM_DESTROY:
-		//KillTimer(hWnd, REDRAW);
+		KillTimer(hWnd, REDRAW);
 		PostQuitMessage(0);
 		break;
 	default:
@@ -930,7 +935,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 		SendMessage(ColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)2);
 
 		DWORD dwError = GetLastError();
-	
+
 		break;
 	}
 	case CUSTOM_COLOR_CHANGE:
@@ -943,7 +948,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			SetBgColorWithColorRef(&customProperty, (COLORREF)wParam);
 			break;
 		}
-		
+
 		break;
 	}
 	case CUSTOM_WIDTH_CHANGE:
@@ -1091,7 +1096,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		Cleanup();
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
-		InvalidateRect(hCWnd, NULL, TRUE);
+		NeedRedraw();
 		break;
 	}
 	case WM_PAINT:
@@ -1236,28 +1241,28 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 扩展功能
 			switch (mst.kztype) {
-				case DRAWCX:
-				{
-					// 保存线段
-					ClearPreviewContent(hdcMemPreview);
-					if (cs.count == -1) break;
-					DrawInfo choose = allImg.img[cs.count];
-					if (choose.type != LINE) break;
-					MyPoint start = choose.line.start;
-					MyPoint end = choose.line.end;
-					MyPoint mp;
-					PointToCoordinate(coordinate, point, mp.x, mp.y);
-					// 计算垂线
-					MyPoint p = CalPerpendicular(start, end, mp);
-				
-					// 保存线段
-					StoreLineTo(&allImg, mp, p, customProperty);
+			case DRAWCX:
+			{
+				// 保存线段
+				ClearPreviewContent(hdcMemPreview);
+				if (cs.count == -1) break;
+				DrawInfo choose = allImg.img[cs.count];
+				if (choose.type != LINE) break;
+				MyPoint start = choose.line.start;
+				MyPoint end = choose.line.end;
+				MyPoint mp;
+				PointToCoordinate(coordinate, point, mp.x, mp.y);
+				// 计算垂线
+				MyPoint p = CalPerpendicular(start, end, mp);
 
-					// 画线
-					POINT pt = mapCoordinate(coordinate, p.x, p.y);
-					DrawLine(hdcMemFixed, point, pt, &customProperty);
-					break;
-				}
+				// 保存线段
+				StoreLineTo(&allImg, mp, p, customProperty);
+
+				// 画线
+				POINT pt = mapCoordinate(coordinate, p.x, p.y);
+				DrawLine(hdcMemFixed, point, pt, &customProperty);
+				break;
+			}
 			}
 		}
 		default:
@@ -1279,7 +1284,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 没有选中
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case CHOOSEN:
@@ -1290,27 +1295,27 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			DrawInfo choose = allImg.img[cs.count];
 			switch (choose.type) {
-				case CIRCLE:
-				{
-					// 在预览窗口绘制圆心
-					MyPoint mp = choose.circle.center;
-					POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
-					// 画圆心
-					SelectObject(hdcMemPreview, hPen);
-					SelectObject(hdcMemPreview, hBlackBrush);
-					Ellipse(hdcMemPreview, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
-					// 显示坐标
-					ShowPointInWindow(hdcMemPreview, mp);
-					CalAndShowPoint();
-					break;
-				}
-				case LINE:
-				{
-					CalAndShowPoint();
-					break;
-				}
+			case CIRCLE:
+			{
+				// 在预览窗口绘制圆心
+				MyPoint mp = choose.circle.center;
+				POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
+				// 画圆心
+				SelectObject(hdcMemPreview, hPen);
+				SelectObject(hdcMemPreview, hBlackBrush);
+				Ellipse(hdcMemPreview, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
+				// 显示坐标
+				ShowPointInWindow(hdcMemPreview, mp);
+				CalAndShowPoint();
+				break;
 			}
-			InvalidateRect(hCWnd, NULL, TRUE);
+			case LINE:
+			{
+				CalAndShowPoint();
+				break;
+			}
+			}
+			NeedRedraw();
 			break;
 		}
 		case DRAWLINE:
@@ -1327,7 +1332,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				StoreLineTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 			break;
 		}
@@ -1345,7 +1350,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				StoreCircleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 			break;
 		}
@@ -1362,7 +1367,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				StoreRectangleTo(&allImg, start, end, customProperty);
 				mst.lastLButtonPoint = { -1, -1 };
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 			break;
 		}
@@ -1385,7 +1390,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			break;
 		}
 		mouseTracking = FALSE; // 重置鼠标跟踪状态
-		//InvalidateRect(hCWnd, NULL, TRUE);
+		NeedRedraw();
 		break;
 	}
 	case WM_RBUTTONDOWN:
@@ -1405,7 +1410,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 			}
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case DRAWMULTILINE:
@@ -1415,7 +1420,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (DrawStateInit(mst) || !drawing.multiline.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearPreviewContent(hdcMemPreview);
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 				break;
 			}
 			DrawInfo mline;
@@ -1427,7 +1432,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultiline(&(drawing.multiline));
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case DRAWFMULTI:
@@ -1437,7 +1442,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (DrawStateInit(mst) || !drawing.multiline.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearPreviewContent(hdcMemPreview);
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 				break;
 			}
 			// 画一条第一个点到最后一个点的直线
@@ -1456,7 +1461,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultiline(&(drawing.multiline));
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case DRAWCURVE:
@@ -1500,7 +1505,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearCurve(&(drawing.curve));
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case MMOUSEMOVE:
@@ -1508,7 +1513,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 清除状态
 			RestoreFormLastType(mst);
 			ClearPreviewContent(hdcMemPreview);
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case CHOOSEN:
@@ -1533,7 +1538,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			{
 				EndKZType(mst);
 				ClearPreviewContent(hdcMemPreview);
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 				break;
 			}
 			default:
@@ -1588,7 +1593,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			coordinate.center.y += y;
 			RedrawFixedContent(hCWnd, hdcMemFixed);
 			// 触发重绘
-			InvalidateRect(hCWnd, NULL, TRUE);
+			NeedRedraw();
 			break;
 		}
 		case DRAWLINE:
@@ -1597,7 +1602,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				ClearPreviewContent(hdcMemPreview);
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 
 			break;
@@ -1609,7 +1614,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画线
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 
 			break;
@@ -1628,7 +1633,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画线
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 			break;
 		}
@@ -1639,7 +1644,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画圆
 				DrawCircle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 
 			break;
@@ -1651,7 +1656,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画矩形
 				DrawRectangle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 
 			break;
@@ -1681,7 +1686,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				Pen pen(Color(255, red, green, blue), drawing.proper.width);
 				graphics.DrawCurve(&pen, gdiplusPoints, drawing.curve.numPoints + 1);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 			}
 			delete[] gdiplusPoints;
 
@@ -1706,7 +1711,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画线
 				DrawLine(hdcMemPreview, point, pt, &customProperty);
 				// 触发重绘
-				InvalidateRect(hCWnd, NULL, TRUE);
+				NeedRedraw();
 				break;
 			}
 			}
@@ -1770,7 +1775,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
 		ClearPreviewContent(hdcMemPreview);
 		// 重新绘制窗口（触发 WM_PAINT）
-		InvalidateRect(hCWnd, NULL, TRUE);
+		NeedRedraw();
 		break;
 	}
 	default:
