@@ -114,7 +114,8 @@ extern "C" {
 		RECTANGLE,
 		CURVE,
 		MULTILINE,
-		FMULTILINE	// 结构与MULTILINE相同
+		FMULTILINE,	// 结构与MULTILINE相同
+		BCURVE		// B样条曲线
 	} ImgType;
 
 	typedef struct MyPoint {

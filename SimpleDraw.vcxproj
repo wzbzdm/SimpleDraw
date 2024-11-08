@@ -160,7 +160,7 @@
     <ResourceCompile Include="SimpleDraw.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="bmp00001.bmp" />
+    <Image Include="toolbar7.bmp" />
     <Image Include="toolbar6.bmp" />
     <Image Include="choose.bmp" />
     <Image Include="clearimg.bmp" />

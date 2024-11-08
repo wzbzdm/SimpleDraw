@@ -70,9 +70,7 @@ void				InitializeBuffers(HWND hWnd);
 void				Cleanup();
 void				RedrawFixedContent(HWND hCWnd, HDC hdc);
 void				ClearPreviewContent(HDC hdc);
-void				InitGDIPlus();
 void				EnableMouseTracking(HWND hWnd);
-void				ShutdownGDIPlus();
 void 				LoadMyCustomCuser();
 void				ShowAllCalPoint(HDC hdc);
 void				CalAndShowPoint();
@@ -288,65 +286,38 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 	TBADDBITMAP tbAddBitmap;
 	tbAddBitmap.hInst = hInst;
 
-	tbAddBitmap.nID = CHOOSE; // 工具栏的选择位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_LINE;  // 工具栏的线位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_CIRCLE; // 工具栏的圆位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_RECT; // 工具栏的矩形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_CURVE; // 工具栏的曲线位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_MUTILINE; // 工具栏的多边形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_FMULTI;	// 工具栏的封闭多边形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = FITSCREEN; // 工具栏的适应屏幕位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = CLEARIMG; // 工具栏的清空位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
+	const INT toolids[] = {
+		CHOOSE, DRAW_LINE, DRAW_CIRCLE, DRAW_RECT, DRAW_CURVE, DRAW_BCURVE, DRAW_MUTILINE, DRAW_FMULTI, FITSCREEN, CLEARIMG
+	};
 
 	const wchar_t* tooltips[] = {
-	L"选择", L"线", L"圆", L"矩形", L"曲线", L"多义线", L"封闭多义线", L"适应屏幕", L"清空"
+	L"选择", L"线", L"圆", L"矩形", L"曲线", L"B样条", L"多义线", L"封闭多义线", L"适应屏幕", L"清空"
 	};
+
+	size_t tools = sizeof(toolids) / sizeof(INT);
+
+	for (int i = 0; i < tools; i++) {
+		tbAddBitmap.nID = toolids[i]; // 工具栏的清空位图资源
+		SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
+	}
 
 	// 定义按钮
-	TBBUTTON tbButtons[9] = {
-		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED | TBSTATE_CHECKED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0]},
-		{ MAKELONG(1, 0), DRAW_LINE,   TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[1] },
-		{ MAKELONG(2, 0), DRAW_CIRCLE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[2] },
-		{ MAKELONG(3, 0), DRAW_RECT, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[3] },
-		{ MAKELONG(4, 0), DRAW_CURVE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[4] },
-		{ MAKELONG(5, 0), DRAW_MUTILINE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[5] },
-		{ MAKELONG(6, 0), DRAW_FMULTI, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[6] },
-		{ MAKELONG(7, 0), FITSCREEN, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[7] },
-		{ MAKELONG(8, 0), CLEARIMG, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[8] }
-	};
+	TBBUTTON tbButtons[10] = {};
+
+	for (int i = 0; i < tools; i++) {
+		tbButtons[i] = { MAKELONG(i, 0), toolids[i], TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0] };
+	}
 
 	// 初始化状态管理
-	InitState(cs, 9, CHOOSE); // 初始化绘图状态
-	AddIdToState(cs, CHOOSE); // 默认选择按钮
-	AddIdToState(cs, DRAW_LINE);
-	AddIdToState(cs, DRAW_CIRCLE);
-	AddIdToState(cs, DRAW_RECT);
-	AddIdToState(cs, DRAW_CURVE);
-	AddIdToState(cs, DRAW_MUTILINE);
-	AddIdToState(cs, DRAW_FMULTI);
-	AddIdToState(cs, FITSCREEN);
-	AddIdToState(cs, CLEARIMG);
+	InitState(cs, 10, CHOOSE); // 初始化绘图状态
+
+	for (int i = 0; i < tools; i++) {
+		AddIdToState(cs, toolids[i]); // 默认选择按钮
+	}
 
 	// 添加按钮到工具栏
 	SendMessage(hToolBar, TB_ADDBUTTONS, sizeof(tbButtons) / sizeof(TBBUTTON), (LPARAM)&tbButtons);
-
+	SendMessage(hToolBar, TB_CHECKBUTTON, CHOOSE, TRUE);
 	SendMessage(hToolBar, TB_SETMAXTEXTROWS, 0, 0);
 
 	// 手动设置每个按钮的工具提示文本（悬停提示）
@@ -693,6 +664,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			drawing.type = CURVE;
 			drawing.proper = customProperty;
 			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
+
+			break;
+		case DRAW_BCURVE:
+			SetToolBarCheck(hToolBar, cs, DRAW_BCURVE);
+			setType(mst, DRAWBCURVE);
+			drawing.type = BCURVE;
+			drawing.proper = customProperty;
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
 
 			break;
 		case DRAW_MUTILINE:
@@ -1850,17 +1829,6 @@ void Cleanup() {
 	SelectObject(hdcMemPreview, hbmOldPreview);
 	DeleteObject(hbmMemPreview);
 	DeleteDC(hdcMemPreview);
-}
-
-// 初始化 GDI+
-void InitGDIPlus() {
-	GdiplusStartupInput gdiplusStartupInput;
-	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-}
-
-// 关闭 GDI+
-void ShutdownGDIPlus() {
-	GdiplusShutdown(gdiplusToken);
 }
 
 void ShowAllCalPoint(HDC hdc) {

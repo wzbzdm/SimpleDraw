@@ -102,7 +102,7 @@
     <Image Include="color.bmp">
       <Filter>资源文件</Filter>
     </Image>
-    <Image Include="bmp00001.bmp">
+    <Image Include="toolbar7.bmp">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

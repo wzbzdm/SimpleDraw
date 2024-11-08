@@ -8,6 +8,18 @@
 using namespace Gdiplus;
 
 ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
+GdiplusStartupInput gdiplusStartupInput; // GDI+ 初始化输入
+
+
+// 初始化 GDI+
+void InitGDIPlus() {
+	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+}
+
+// 关闭 GDI+
+void ShutdownGDIPlus() {
+	GdiplusShutdown(gdiplusToken);
+}
 
 #define MAINCOLOR  RGB(230, 230, 230)
 #define SMALLCOLOR RGB(127, 127, 127)
@@ -432,3 +444,69 @@ void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
 	SendMessage(toolbar, TB_CHECKBUTTON, id, TRUE);
 	SetActiveID(cs, id);
 }
+
+
+// B 样条基函数的递归计算
+double B_SplineBasis(int i, int p, double t, const vector<double>& knots) {
+	if (p == 0) {
+		// 0阶基函数：如果t位于控制点范围内，则返回1，否则返回0
+		return (knots[i] <= t && t < knots[i + 1]) ? 1.0 : 0.0;
+	}
+	else {
+		// 递归计算p阶基函数
+		double denom1 = knots[i + p] - knots[i];
+		double denom2 = knots[i + p + 1] - knots[i + 1];
+		double coeff1 = (denom1 != 0) ? (t - knots[i]) / denom1 : 0.0;
+		double coeff2 = (denom2 != 0) ? (knots[i + p + 1] - t) / denom2 : 0.0;
+
+		return coeff1 * B_SplineBasis(i, p - 1, t, knots) + coeff2 * B_SplineBasis(i + 1, p - 1, t, knots);
+	}
+}
+
+// 绘制 B 样条曲线，使用 POINT* 作为控制点数组
+void DrawBSpline(HDC hdc, POINT* controlPoints, int degree, int n, DrawUnitProperty* pro) {
+	// 初始化 GDI+
+	GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR gdiplusToken;
+	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+	Graphics graphics(hdc);  // 获取窗口的 HDC，并创建 GDI+ 图形对象
+
+	// 节点向量生成：假设均匀节点，degree + 1 个控制点，degree + 1 个额外的节点
+	vector<double> knots(n + degree + 1);
+
+	for (int i = 0; i <= n + degree; ++i) {
+		knots[i] = (i <= degree) ? 0.0 : (i >= n) ? 1.0 : (i - degree) / (double)(n - degree);
+	}
+
+	// 生成 B 样条曲线的路径
+	GraphicsPath path;
+	const int numSegments = 100; // 曲线的分段数，可以根据需要调整
+	for (int i = 0; i < numSegments; ++i) {
+		double t = i / (double)(numSegments - 1); // t 从0到1
+		PointF point(0.0f, 0.0f);
+
+		// 计算该 t 值下的 B 样条曲线位置
+		for (int j = 0; j < n; ++j) {
+			// 使用控制点数组中 `POINT` 的 x 和 y 值
+			double basis = B_SplineBasis(j, degree, t, knots);
+			point.X += static_cast<float>(basis * controlPoints[j].x);
+			point.Y += static_cast<float>(basis * controlPoints[j].y);
+		}
+
+		if (i == 0) {
+			path.StartFigure();
+		}
+		else {
+			// 获取上一点的坐标并绘制直线
+			PointF lastPoint;
+			path.GetLastPoint(&lastPoint);
+			path.AddLine(lastPoint.X, lastPoint.Y, point.X, point.Y);  // 使用坐标作为参数
+		}
+	}
+
+	// 设置画笔和笔宽
+	Pen pen(Color(255, GetRValue(pro->color), GetGValue(pro->color), GetBValue(pro->color)), pro->width);  // 蓝色画笔，宽度为2
+	graphics.DrawPath(&pen, &path);  // 绘制 B 样条曲线
+}
+
