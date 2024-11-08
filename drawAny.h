@@ -71,7 +71,6 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	break;
 	}
 
-
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
@@ -232,36 +231,40 @@ void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width) {
 }
 
 void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
-	int dx = abs(x1 - x0), dy = abs(y1 - y0);
-	int sx = (x0 < x1) ? 1 : -1;
-	int sy = (y0 < y1) ? 1 : -1;
-	int err = dx - dy;
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	int stepX = dx >= 0 ? 1 : -1;
+	int stepY = dy >= 0 ? 1 : -1;
+	dx = abs(dx);
+	dy = abs(dy);
 
-	// 绘制起点
-	SetPixel(hdc, x0, y0, color);
-
-	// 绘制主循环
-	while (x0 != x1 || y0 != y1) {
-		int e2 = 2 * err;  // 计算当前误差的两倍
-
-		// 判断是否需要调整 x 轴坐标
-		if (e2 > -dy) {
-			err -= dy;
-			x0 += sx;  // x 增加
+	if (dx > dy) { // |m| < 1
+		int p = 2 * dy - dx;
+		int y = y0;
+		for (int x = x0; x != x1; x += stepX) {
+			SetPixel(hdc, x, y, color);
+			if (p > 0) {
+				y += stepY;
+				p -= 2 * dx;
+			}
+			p += 2 * dy;
 		}
-
-		// 判断是否需要调整 y 轴坐标
-		if (e2 < dx) {
-			err += dx;
-			y0 += sy;  // y 增加
+		SetPixel(hdc, x1, y1, color); // 绘制终点
+	}
+	else { // |m| >= 1
+		int p = 2 * dx - dy;
+		int x = x0;
+		for (int y = y0; y != y1; y += stepY) {
+			SetPixel(hdc, x, y, color);
+			if (p > 0) {
+				x += stepX;
+				p -= 2 * dy;
+			}
+			p += 2 * dx;
 		}
-
-		// 绘制当前点
-		SetPixel(hdc, x0, y0, color);
+		SetPixel(hdc, x1, y1, color); // 绘制终点
 	}
 }
-
-
 
 // 绘制像素点的函数
 void SetPixelPoint(HDC hdc, int x, int y, int color) {
