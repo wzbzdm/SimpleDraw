@@ -221,13 +221,9 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
         break;
     }
     case CURVE:
-    {
-        d = GetMinDPoinToCurve(mp, &(choose.curve));
-        break;
-    }
     case MULTILINE:
     {
-        d = GetMinDPointToMultiline(mp, &(choose.multiline));
+        d = GetMinDPointToMultipoint(mp, &(choose.multipoint));
         break;
     }
     default:
@@ -280,17 +276,9 @@ int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
             break;
         }
         case CURVE:
-        {
-            double d = GetMinDPoinToCurve(mp, &(item.curve));
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
-            break;
-        }
         case MULTILINE:
         {
-            double d = GetMinDPointToMultiline(mp, &(item.multiline));
+            double d = GetMinDPointToMultipoint(mp, &(item.multipoint));
             if (minDistance > d) {
                 minDistance = d;
                 count = i;
@@ -352,25 +340,15 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
             break;
         }
         case CURVE:
-        {
-            for (int j = 0; j < item.curve.endNum; j++) {
-                if (item.curve.controlPoints[j].x == DBL_MAX || item.curve.controlPoints[j].y == DBL_MAX) continue;
-                if (item.curve.controlPoints[j].x < minX) minX = item.curve.controlPoints[j].x;
-                if (item.curve.controlPoints[j].y < minY) minY = item.curve.controlPoints[j].y;
-                if (item.curve.controlPoints[j].x > maxX) maxX = item.curve.controlPoints[j].x;
-                if (item.curve.controlPoints[j].y > maxY) maxY = item.curve.controlPoints[j].y;
-            }
-            break;
-        }
         case FMULTILINE:
         case MULTILINE:
         {
-            for (int j = 0; j < item.multiline.endNum; j++) {
-                if (item.multiline.points[j].x == DBL_MAX || item.multiline.points[j].y == DBL_MAX) continue;
-                if (item.multiline.points[j].x < minX) minX = item.multiline.points[j].x;
-                if (item.multiline.points[j].y < minY) minY = item.multiline.points[j].y;
-                if (item.multiline.points[j].x > maxX) maxX = item.multiline.points[j].x;
-                if (item.multiline.points[j].y > maxY) maxY = item.multiline.points[j].y;
+            for (int j = 0; j < item.multipoint.endNum; j++) {
+                if (item.multipoint.points[j].x == DBL_MAX || item.multipoint.points[j].y == DBL_MAX) continue;
+                if (item.multipoint.points[j].x < minX) minX = item.multipoint.points[j].x;
+                if (item.multipoint.points[j].y < minY) minY = item.multipoint.points[j].y;
+                if (item.multipoint.points[j].x > maxX) maxX = item.multipoint.points[j].x;
+                if (item.multipoint.points[j].y > maxY) maxY = item.multipoint.points[j].y;
             }
             break;
         }

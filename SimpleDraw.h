@@ -4,9 +4,10 @@
 #include "drawinfo.h"
 #include "drawAny.h"
 #include "windowState.h"
-#include <windows.h>
-#include <CommCtrl.h>
-#include <string>
+
+using namespace Gdiplus;
+
+ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
 
 #define MAINCOLOR  RGB(230, 230, 230)
 #define SMALLCOLOR RGB(127, 127, 127)
@@ -19,10 +20,6 @@ MyDrawState mst = { CHOOSEIMG, CHOOSEIMG }; // 默认状态
 Coordinate coordinate; // 坐标系
 StoreImg allImg; // 存储所有的图形
 DrawInfo drawing; // 当前正在绘制的图形
-
-using namespace Gdiplus;
-
-ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
 
 POINT getClientPos(LPARAM lParam) {
 	POINT point;
@@ -38,13 +35,18 @@ POINT getClientPos(HWND hWnd) {
 	return point;
 }
 
+#define COORDILINE		RGB(0, 0, 0)		// 默认颜色
+#define COORDISLINE		RGB(230, 230, 230)	// 坐标线颜色
+#define COORDIWIDTH		1		// 坐标及其他线宽
+#define COORDIKWIDTH	2		// 刻度宽度
+
 void drawCoordinate(HDC hdc, POINT center, int width, int height) {
 	// 画坐标系
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0)); // 黑色画笔
+	HPEN hPen = CreatePen(PS_SOLID, COORDIWIDTH, COORDILINE); // 黑色画笔
 
-	HPEN hWPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+	HPEN hWPen = CreatePen(PS_SOLID, COORDIKWIDTH, COORDILINE);
 
-	HPEN hPenLight = CreatePen(PS_SOLID, 1, RGB(230, 230, 230)); // 浅色画笔
+	HPEN hPenLight = CreatePen(PS_SOLID, COORDIWIDTH, COORDISLINE); // 浅色画笔
 
 	LOGBRUSH lb;
 	lb.lbStyle = BS_NULL;
@@ -208,9 +210,9 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		case MULTILINE:
 		{
 			// 画多义线
-			if (item->multiline.numPoints > 0) {
-				POINT* points = mapMyPoints(item->multiline.points, item->multiline.numPoints, item->multiline.endNum);
-				DrawMultiLine(hdc, points, item->multiline.numPoints, &item->proper);
+			if (item->multipoint.numPoints > 0) {
+				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
+				DrawMultiLine(hdc, points, item->multipoint.numPoints, &item->proper);
 				delete[] points;
 			}
 			break;
@@ -218,9 +220,9 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		case FMULTILINE:
 		{
 			// 画封闭多义线
-			if (item->multiline.numPoints > 0) {
-				POINT* points = mapMyPoints(item->multiline.points, item->multiline.numPoints, item->multiline.endNum);
-				DrawFMultiLine(hdc, points, item->multiline.numPoints, &item->proper);
+			if (item->multipoint.numPoints > 0) {
+				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
+				DrawFMultiLine(hdc, points, item->multipoint.numPoints, &item->proper);
 				delete[] points;
 			}
 			break;
@@ -228,16 +230,16 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		case CURVE:
 		{
 			// 画曲线
-			if (item->curve.numPoints > 0) {
-				Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[item->curve.numPoints];
+			if (item->multipoint.numPoints > 0) {
+				Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[item->multipoint.numPoints];
 				int count = 0;
-				for (int i = 0; i < item->curve.endNum; i++) {
-					MyPoint pt = item->curve.controlPoints[i];
+				for (int i = 0; i < item->multipoint.endNum; i++) {
+					MyPoint pt = item->multipoint.points[i];
 					if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
 					POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 					gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 				}
-				if (count == item->curve.numPoints) {
+				if (count == item->multipoint.numPoints) {
 					// 使用GDI+绘图
 					Graphics graphics(hdc);
 					int color = item->proper.color;
@@ -247,7 +249,7 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 					int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
 
 					Pen pen(Color(255, red, green, blue), item->proper.width);
-					graphics.DrawCurve(&pen, gdiplusPoints, item->curve.numPoints);
+					graphics.DrawCurve(&pen, gdiplusPoints, item->multipoint.numPoints);
 				}
 				delete[]gdiplusPoints;
 			}
@@ -280,16 +282,16 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	case CURVE:
 	{
 		// 画曲线
-		if (drawing->curve.numPoints > 0) {
-			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing->curve.numPoints];
+		if (drawing->multipoint.numPoints > 0) {
+			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing->multipoint.numPoints];
 			int count = 0;
-			for (int i = 0; i < drawing->curve.endNum; i++) {
-				MyPoint pt = drawing->curve.controlPoints[i];
+			for (int i = 0; i < drawing->multipoint.endNum; i++) {
+				MyPoint pt = drawing->multipoint.points[i];
 				if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
 				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 			}
-			if (count == drawing->curve.numPoints) {
+			if (count == drawing->multipoint.numPoints) {
 				// 使用GDI+绘图
 				Graphics graphics(hdc);
 				int color = drawing->proper.color;
@@ -299,7 +301,7 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
 
 				Pen pen(Color(255, red, green, blue), drawing->proper.width);
-				graphics.DrawCurve(&pen, gdiplusPoints, drawing->curve.numPoints);
+				graphics.DrawCurve(&pen, gdiplusPoints, drawing->multipoint.numPoints);
 			}
 			delete[]gdiplusPoints;
 		}
@@ -308,17 +310,17 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	case MULTILINE:
 	{
 		// 画多义线
-		if (drawing->multiline.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->multiline.points, drawing->multiline.numPoints, drawing->multiline.endNum);
-			DrawMultiLine(hdc, points, drawing->multiline.numPoints, &drawing->proper);
+		if (drawing->multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
+			DrawMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
 			delete[] points;
 		}
 		break;
 	}
 	case FMULTILINE:
 	{
-		POINT* points = mapMyPoints(drawing->multiline.points, drawing->multiline.numPoints, drawing->multiline.endNum);
-		DrawFMultiLine(hdc, points, drawing->multiline.numPoints, &drawing->proper);
+		POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
+		DrawFMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
 		break;
 	}
 	default:

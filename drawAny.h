@@ -4,8 +4,8 @@
 
 void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineWidth);
 void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineWidth);
-void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro);
-void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro);
+void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty* pro);
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty* pro);
 
 int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	LOGBRUSH lb;
@@ -165,7 +165,7 @@ int DrawRectangle(HDC hdc, POINT start, POINT end, DrawUnitProperty* pro) {
 	lbb.lbHatch = 0;
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
-	
+
 	Rectangle(hdc, start.x, start.y, end.x, end.y);
 
 	DeleteObject(hPen);
@@ -212,8 +212,8 @@ void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineWi
 	int x = x0, y = y0;
 
 	auto drawThickPixel = [&](int x, int y) {
-		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {
-			for (int j = -lineWidth / 2; j <= lineWidth / 2; j++) {
+		for (int i = -lineWidth / 2; i < lineWidth / 2; i++) {
+			for (int j = -lineWidth / 2; j < lineWidth / 2; j++) {
 				SetPixel(hdc, x + i, y + j, color);
 			}
 		}
@@ -241,8 +241,8 @@ void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineW
 	int err = dx - dy;
 
 	auto drawThickPixel = [&](int x, int y) {
-		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {
-			for (int j = -lineWidth / 2; j <= lineWidth / 2; j++) {
+		for (int i = -lineWidth / 2; i < lineWidth / 2; i++) {
+			for (int j = -lineWidth / 2; j < lineWidth / 2; j++) {
 				SetPixel(hdc, x + i, y + j, color);
 			}
 		}
@@ -263,7 +263,7 @@ void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int lineW
 	}
 }
 
-void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
+void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty* pro) {
 	int x = 0;
 	int y = r;
 	int d = 1 - r;
@@ -271,8 +271,8 @@ void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
 	int lineWidth = pro->width;
 
 	auto drawThickCirclePoints = [&](int x, int y) {
-		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {
-			for (int j = -lineWidth / 2; j <= lineWidth / 2; j++) {
+		for (int i = -lineWidth / 2; i < lineWidth / 2; i++) {
+			for (int j = -lineWidth / 2; j < lineWidth / 2; j++) {
 				SetPixel(hdc, xc + x + i, yc + y + j, color);
 				SetPixel(hdc, xc - x + i, yc + y + j, color);
 				SetPixel(hdc, xc + x + i, yc - y + j, color);
@@ -300,15 +300,15 @@ void MidpointCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
 	}
 }
 
-void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty* pro) {
 	int x = 0, y = r;
 	int d = 3 - 2 * r;
 	int lineWidth = pro->width;
 	int color = pro->color;
 
 	auto drawThickCirclePoints = [&](int x, int y) {
-		for (int i = -lineWidth / 2; i <= lineWidth / 2; i++) {
-			for (int j = -lineWidth / 2; j <= lineWidth / 2; j++) {
+		for (int i = -lineWidth / 2; i < lineWidth / 2; i++) {
+			for (int j = -lineWidth / 2; j < lineWidth / 2; j++) {
 				SetPixel(hdc, xc + x + i, yc + y + j, color);
 				SetPixel(hdc, xc - x + i, yc + y + j, color);
 				SetPixel(hdc, xc + x + i, yc - y + j, color);
@@ -319,7 +319,7 @@ void BresenhamCircle(HDC hdc, int xc, int yc, int r, DrawUnitProperty *pro) {
 				SetPixel(hdc, xc - y + i, yc - x + j, color);
 			}
 		}
-		};
+	};
 
 	drawThickCirclePoints(x, y);
 
