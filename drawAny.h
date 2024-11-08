@@ -187,25 +187,52 @@ int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 ///////////////////////////////////////////////////////////////////////////// 实验要求
 
 void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
-	int dx = x1 - x0;
-	int dy = y1 - y0;
-	int d = dy - (dx / 2);
-	int x = x0, y = y0;
+	int dx = abs(x1 - x0);  // 计算横向差值
+	int dy = abs(y1 - y0);  // 计算纵向差值
+	int sx = (x0 < x1) ? 1 : -1;  // 设置x的步长
+	int sy = (y0 < y1) ? 1 : -1;  // 设置y的步长
+	int d = dy - (dx / 2);  // 初始误差
 
-	SetPixel(hdc, x0, y0, color);
+	// 根据斜率判断是否水平或垂直的特殊情况
+	if (dx > dy) { // 斜率小于1
+		while (x0 != x1) {
+			int e2 = 2 * d;  // 计算误差的临时变量
 
-	while (x < x1) {
-		x++;
-		if (d < 0) {
-			d = d + dy;
+			if (e2 > -dy) { // 误差超过x的范围时，移动x
+				d -= dy;
+				x0 += sx;
+			}
+
+			if (e2 < dx) { // 误差超过y的范围时，移动y
+				d += dx;
+				y0 += sy;
+			}
+
+			// 绘制当前像素
+			SetPixel(hdc, x0, y0, color);
 		}
-		else {
-			d = d + (dy - dx);
-			y++;
+	}
+	else { // 斜率大于等于1
+		while (y0 != y1) {
+			int e2 = 2 * d;  // 计算误差的临时变量
+
+			if (e2 > -dx) { // 误差超过y的范围时，移动y
+				d -= dx;
+				y0 += sy;
+			}
+
+			if (e2 < dy) { // 误差超过x的范围时，移动x
+				d += dy;
+				x0 += sx;
+			}
+
+			// 绘制当前像素
+			SetPixel(hdc, x0, y0, color);
 		}
-		SetPixel(hdc, x, y, color);
 	}
 }
+
+
 
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width) {
 	int dx = x1 - x0;
