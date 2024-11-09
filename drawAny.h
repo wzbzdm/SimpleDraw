@@ -3,6 +3,8 @@
 #include "drawinfo.h"
 #include <vector>
 #include <algorithm>
+#include <thread>
+#include <vector>
 
 using namespace std;
 
@@ -17,6 +19,26 @@ int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	lb.lbColor = pro->color; // 线条颜色
 	DWORD dashPattern[2] = { 10, 5 }; // 10个像素实线，5个像素空白
 	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, pro->width, &lb, 2, dashPattern);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+	MoveToEx(hdc, start.x, start.y, NULL);
+	LineTo(hdc, end.x, end.y);
+
+	return 0;
+}
+
+int DrawXLine(HDC hdc, POINT start, POINT end, int width) {
+	LOGBRUSH lb;
+	lb.lbStyle = BS_SOLID;
+	lb.lbColor = RGB(255, 0, 0); // 线条颜色
+	DWORD dashPattern[2] = { 10, 5 }; // 10个像素实线，5个像素空白
+	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, width, &lb, 2, dashPattern);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
 	LOGBRUSH lbb;
@@ -232,8 +254,6 @@ void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
 	}
 }
 
-
-
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width) {
 	int dx = x1 - x0;
 	int dy = y1 - y0;
@@ -296,6 +316,14 @@ void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
 // 绘制像素点的函数
 void SetPixelPoint(HDC hdc, int x, int y, int color) {
 	SetPixel(hdc, x, y, color);
+}
+
+void DrawPoint(HDC hdc, int x, int y, int size, COLORREF color) {
+	HBRUSH brush = CreateSolidBrush(color);  // 创建填充颜色
+	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, brush);
+	Ellipse(hdc, x - size, y - size, x + size, y + size);  // 绘制圆
+	SelectObject(hdc, oldBrush);
+	DeleteObject(brush);
 }
 
 // 扫描线填充函数

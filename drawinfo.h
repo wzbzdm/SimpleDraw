@@ -28,6 +28,7 @@ extern "C" {
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
 
+#define BSPLINE				3
 			
 #define DRAWSYSTEM			0x1
 #define DRAWBRE				0x2

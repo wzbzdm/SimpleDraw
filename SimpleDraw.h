@@ -10,6 +10,7 @@ using namespace Gdiplus;
 ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
 GdiplusStartupInput gdiplusStartupInput; // GDI+ 初始化输入
 
+void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro);
 
 // 初始化 GDI+
 void InitGDIPlus() {
@@ -187,6 +188,20 @@ POINT* mapMyPoints(MyPoint* mp, int length, int end) {
 	return points;
 }
 
+POINT* mapPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
+	POINT* points = new POINT[length+1];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
 void drawDrawInfo(HDC hdc, DrawInfo *item) {
 	switch (item->type) {
 		case LINE:
@@ -237,6 +252,16 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 				DrawFMultiLine(hdc, points, item->multipoint.numPoints, &item->proper);
 				delete[] points;
 			}
+			break;
+		}
+		case BCURVE:
+		{
+			if (item->multipoint.numPoints > 0) {
+				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
+				DrawBSplineC(hdc, points, BSPLINE, item->multipoint.numPoints, &item->proper);
+				delete[] points;
+			}
+
 			break;
 		}
 		case CURVE:
@@ -333,6 +358,15 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	{
 		POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
 		DrawFMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
+		break;
+	}
+	case BCURVE:
+	{
+		if (drawing->multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
+			DrawBSplineC(hdc, points, BSPLINE, drawing->multipoint.numPoints, &drawing->proper);
+			delete[] points;
+		}
 		break;
 	}
 	default:
@@ -445,68 +479,104 @@ void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
 	SetActiveID(cs, id);
 }
 
+void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro) {
+	Graphics graphics(hdc);
+	Pen pen(Color(255, GetRValue(pro->color), GetGValue(pro->color), GetBValue(pro->color)), pro->width);
 
-// B 样条基函数的递归计算
-double B_SplineBasis(int i, int p, double t, const vector<double>& knots) {
-	if (p == 0) {
-		// 0阶基函数：如果t位于控制点范围内，则返回1，否则返回0
-		return (knots[i] <= t && t < knots[i + 1]) ? 1.0 : 0.0;
-	}
-	else {
-		// 递归计算p阶基函数
-		double denom1 = knots[i + p] - knots[i];
-		double denom2 = knots[i + p + 1] - knots[i + 1];
-		double coeff1 = (denom1 != 0) ? (t - knots[i]) / denom1 : 0.0;
-		double coeff2 = (denom2 != 0) ? (knots[i + p + 1] - t) / denom2 : 0.0;
+	// 二阶基函数矩阵
+	double M2[3][3] = {
+		{0.5, -1, 0.5},
+		{0.5, 1, -1},
+		{0, 0, 0.5}
+	};
 
-		return coeff1 * B_SplineBasis(i, p - 1, t, knots) + coeff2 * B_SplineBasis(i + 1, p - 1, t, knots);
+	// 三阶基函数矩阵
+	double M3[4][4] = {
+		{1.0 / 6, -0.5, 0.5, -1.0 / 6},
+		{4.0 / 6, 0, -1, 0.5},
+		{1.0 / 6, 0.5, 0.5, -0.5},
+		{0 ,0 , 0 , 1.0 / 6}
+	};
+
+	// 控制点的数量
+	int numPoints = degree + 1;
+	const int numSegments = 20;
+	double* T = new double[numPoints];
+	double lastX = 0, lastY = 0;
+	double pointX = 0, pointY = 0;
+	for (int i = 0; i < n - degree; i++) {
+
+		// 0 << t << 1
+		for (int k = 0; k <= numSegments; k++) {
+			pointX = 0;
+			pointY = 0;
+
+			double t = k / (double)numSegments;
+
+			// 为 degree = 2 和 degree = 3 分别计算基函数	{ 1, t, t * t.... }
+			T[0] = 1;
+			for (int m = 1; m < numPoints; m++) {
+				T[m] = T[m - 1] * t;
+			}
+
+			// 计算曲线点
+			for (int row = 0; row < numPoints; row++) {
+				double basis = 0;
+				for (int col = 0; col < numPoints; col++) {
+					if (degree == 2) {
+						basis += M2[row][col] * T[col];
+					}
+					else if(degree == 3) {
+						basis += M3[row][col] * T[col];
+					}
+				}
+				pointX += basis * controlPoints[i + row].x;
+				pointY += basis * controlPoints[i + row].y;
+			}
+
+			// 绘制曲线段
+			if (lastX != 0 && lastY != 0) {
+				graphics.DrawLine(&pen, static_cast<REAL>(lastX), static_cast<REAL>(lastY), static_cast<REAL>(pointX), static_cast<REAL>(pointY));
+			}
+
+			// 更新 lastX 和 lastY
+			lastX = pointX;
+			lastY = pointY;
+		}
 	}
+
+	delete[] T;
 }
 
-// 绘制 B 样条曲线，使用 POINT* 作为控制点数组
-void DrawBSpline(HDC hdc, POINT* controlPoints, int degree, int n, DrawUnitProperty* pro) {
-	// 初始化 GDI+
-	GdiplusStartupInput gdiplusStartupInput;
-	ULONG_PTR gdiplusToken;
-	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-	Graphics graphics(hdc);  // 获取窗口的 HDC，并创建 GDI+ 图形对象
-
-	// 节点向量生成：假设均匀节点，degree + 1 个控制点，degree + 1 个额外的节点
-	vector<double> knots(n + degree + 1);
-
-	for (int i = 0; i <= n + degree; ++i) {
-		knots[i] = (i <= degree) ? 0.0 : (i >= n) ? 1.0 : (i - degree) / (double)(n - degree);
+// 绘制 B 样条曲线，使用 MyPoint* 作为控制点数组
+void DrawBCurve(HDC hdc, POINT* points, int degree, int n, const DrawUnitProperty* pro) {
+	// 画虚线
+	for (int i = 0; i < n - 1; i++) {
+		DrawXLine(hdc, points[i], points[i+1], 1);
+	}
+	
+	// 画隔一个点的虚线
+	for (int i = 0; i < n - 2; i++) {
+		DrawXLine(hdc, points[i], points[i + 2], 1);
 	}
 
-	// 生成 B 样条曲线的路径
-	GraphicsPath path;
-	const int numSegments = 100; // 曲线的分段数，可以根据需要调整
-	for (int i = 0; i < numSegments; ++i) {
-		double t = i / (double)(numSegments - 1); // t 从0到1
-		PointF point(0.0f, 0.0f);
+	// 隔一个的线的中点与两个点之间的点相连
+	POINT mid;
+	POINT third;
+	int r = degree;
+	for (int i = 0; i < n - 2; i++) {
+		mid.x = (points[i].x + points[i + 2].x) / 2;
+		mid.y = (points[i].y + points[i + 2].y) / 2;
+		DrawXLine(hdc, mid, points[i + 1], 1);
 
-		// 计算该 t 值下的 B 样条曲线位置
-		for (int j = 0; j < n; ++j) {
-			// 使用控制点数组中 `POINT` 的 x 和 y 值
-			double basis = B_SplineBasis(j, degree, t, knots);
-			point.X += static_cast<float>(basis * controlPoints[j].x);
-			point.Y += static_cast<float>(basis * controlPoints[j].y);
-		}
+		// 将中点和其三分一处标红
+		third.x = (points[i + 1].x * (r - 1) + mid.x) / r;
+		third.y = (points[i + 1].y * (r - 1) + mid.y) / r;
 
-		if (i == 0) {
-			path.StartFigure();
-		}
-		else {
-			// 获取上一点的坐标并绘制直线
-			PointF lastPoint;
-			path.GetLastPoint(&lastPoint);
-			path.AddLine(lastPoint.X, lastPoint.Y, point.X, point.Y);  // 使用坐标作为参数
-		}
+		DrawPoint(hdc, mid.x, mid.y, 2, 0x00ff0000);
+		DrawPoint(hdc, third.x, third.y, 2, 0x00ff0000);
 	}
 
-	// 设置画笔和笔宽
-	Pen pen(Color(255, GetRValue(pro->color), GetGValue(pro->color), GetBValue(pro->color)), pro->width);  // 蓝色画笔，宽度为2
-	graphics.DrawPath(&pen, &path);  // 绘制 B 样条曲线
+	DrawBSplineC(hdc, points, degree, n, pro);
 }
-

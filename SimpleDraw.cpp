@@ -305,7 +305,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 	TBBUTTON tbButtons[10] = {};
 
 	for (int i = 0; i < tools; i++) {
-		tbButtons[i] = { MAKELONG(i, 0), toolids[i], TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0] };
+		tbButtons[i] = { MAKELONG(i, 0), toolids[i], TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[i] };
 	}
 
 	// 初始化状态管理
@@ -1201,6 +1201,31 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			break;
 		}
+		case DRAWBCURVE:
+		{
+			// B样条绘制
+			if (DrawStateInit(mst)) {
+				mst.lastLButtonPoint = point;
+				// 初始化 mst.
+				InitMultipoint(&(drawing.multipoint));
+				MyPoint lastPoint;
+				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+			}
+			else {
+				// 将上一个点保存到DrawInfo中
+				mst.lastLButtonPoint = point;
+				MyPoint lastPoint;
+				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+
+				ClearPreviewContent(hdcMemPreview);
+				POINT* pts = mapMyPoints(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum);
+				DrawBCurve(hdcMemPreview, pts, BSPLINE, drawing.multipoint.endNum, &customProperty);
+				NeedRedraw();
+			}
+			break;
+		}
 		case DRAWCURVE:
 		{
 			// 曲线绘制, 先设置起点和终点
@@ -1446,6 +1471,37 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			NeedRedraw();
 			break;
 		}
+		case DRAWBCURVE:
+		{
+			if (DrawStateInit(mst) || !drawing.multipoint.points) {
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
+				break;
+			}
+			if (drawing.multipoint.numPoints <= 3) {
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
+				ClearMultipoint(&(drawing.multipoint));
+				ClearPreviewContent(hdcMemPreview);
+				NeedRedraw();
+				break;
+			}
+			DrawInfo bcurve;
+			bcurve.type = BCURVE;
+			bcurve.proper = drawing.proper;
+			InitFromMultipoint(&(bcurve.multipoint), &(drawing.multipoint));
+			AddDrawInfoToStoreImg(&allImg, bcurve);
+
+			// 绘制到固定画布上
+			POINT* pts = mapMyPoints(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum);
+			DrawBSplineC(hdcMemFixed, pts, BSPLINE, drawing.multipoint.endNum, &customProperty);
+
+			// 清空状态
+			mst.lastLButtonPoint = { -1, -1 };
+			ClearMultipoint(&(drawing.multipoint));
+			ClearPreviewContent(hdcMemPreview);
+			NeedRedraw();
+			delete[] pts;
+			break;
+		}
 		case DRAWCURVE:
 		{
 			// 完成绘制逻辑
@@ -1612,6 +1668,17 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				NeedRedraw();
+			}
+			break;
+		}
+		case DRAWBCURVE:
+		{
+			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
+				ClearPreviewContent(hdcMemPreview);
+				POINT* pts = mapPointsAddOne(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum, point);
+				DrawBCurve(hdcMemPreview, pts, BSPLINE, drawing.multipoint.endNum+1, &customProperty);
+				NeedRedraw();
+				delete[] pts;
 			}
 			break;
 		}
