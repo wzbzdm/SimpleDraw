@@ -10,12 +10,13 @@
 #define STATUSBARHEIGHT 20
 #define DEFAULTPADDING 6
 
-#define DEFAULTRADIUS 0.04
-#define MINRADIUS 0.0001
-#define MAXRADIUS 10000
-#define RADIUSCHANGESPEED 0.001
-#define FITRADIUS 1.5
-#define MINXPERZ 30
+#define DEFAULTRADIUS		0.04		// 默认缩放
+#define MINRADIUS			0.0001		// 最小缩放
+#define MAXRADIUS			10000		// 最大缩放
+#define RADIUSCHANGESPEED	0.001		// 缩放增速
+#define FITRADIUS			1.5			// 适应屏幕时的倍率
+#define MINXPERZ			30			// 最小像素每刻度
+#define STEPSHOWNUM			4			// 多少个刻度下显示数据
 
 typedef struct windowState {
 	int width;
@@ -46,6 +47,7 @@ typedef enum DrawType {
 	DRAWCIRCLE,
 	DRAWRECTANGLE,
 	DRAWCURVE,
+	DRAWBCURVE,
 	DRAWMULTILINE,
 	DRAWFMULTI,
 	MMOUSEMOVE,
@@ -72,7 +74,7 @@ bool DrawStateInit(const MyDrawState& mst) {
 }
 
 bool TwoPointDraw(const POINT& p1, const POINT& p2) {
-	return p1.x != p2.x || p1.y != p2.y;
+	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != -1 && p1.y != -1 && p2.x != -1 && p2.y != -1);
 }
 
 bool InDraw(const MyDrawState& mst) {

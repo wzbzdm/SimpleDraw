@@ -17,6 +17,7 @@
 #define CUSTOM_TITLE_CHANGE		(WM_USER + 6)
 #define CUSTOM_SET_NUM			(WM_USER + 7)
 #define CUSTOM_VALUE_CHANGE		(WM_USER + 8)
+#define CUSTOM_SET_COLOR		(WM_USER + 9)
 
 
 LRESULT CALLBACK TrackbarSubclassProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR, DWORD_PTR);
@@ -206,6 +207,7 @@ public:
 		currentColor = RGB(0, 0, 0); // 默认颜色为黑色
 		this->hWnd = hwnd;
 
+		this->number = -1;
 		this->lastColor = currentColor;
 		// 加载位图资源
 		hBitmap = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_COLOR));
@@ -253,6 +255,13 @@ public:
 
 	INT SetNumber(INT num) {
 		this->number = num;
+		return 0;
+	}
+
+	// 设置默认颜色
+	INT SetDefaultColor(COLORREF color) {
+		this->currentColor = color;
+		InvalidateRect(hWnd, NULL, FALSE);
 		return 0;
 	}
 
@@ -311,11 +320,14 @@ public:
 
 // 窗口过程函数
 LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-	static ColorPicker* picker = nullptr;
+	// 确保picker独立
+	ColorPicker* picker = (ColorPicker*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 	static HBRUSH hBrushStaticBackground; // 静态控件背景画刷
 	switch (message) {
 	case WM_CREATE: {
 		picker = new ColorPicker(hWnd);
+		// 将picker与窗口关联
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)picker);
 		hBrushStaticBackground = CreateSolidBrush(SIDEBARCOLOR); // 创建背景画刷
 		break;
 	}
@@ -330,14 +342,28 @@ LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 	}
 	case CUSTOM_TITLE_CHANGE:
 	{
-		LPCWSTR title = (LPCWSTR)lParam;
-		picker->SetTitle(title);
+		if (picker) {
+			LPCWSTR title = (LPCWSTR)lParam;
+			picker->SetTitle(title);
+		}
+		
 		break;
 	}
 	case CUSTOM_SET_NUM:
 	{
-		INT num = (INT)lParam;
-		picker->SetNumber(num);
+		if (picker->number == -1) {
+			INT num = (INT)lParam;
+			picker->SetNumber(num);
+		}
+		
+		break;
+	}
+	case CUSTOM_SET_COLOR:
+	{
+		if ((INT)wParam == picker->number) {
+			COLORREF col = (COLORREF)lParam;
+			picker->SetDefaultColor(col);
+		}
 		break;
 	}
 	case WM_CTLCOLORSTATIC:
@@ -378,6 +404,7 @@ LRESULT CALLBACK ColorPickerProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		DeleteObject(hBrushStaticBackground); // 清理资源
 		delete picker;
 		picker = nullptr;
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, 0);
 		break;
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);

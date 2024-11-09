@@ -28,6 +28,7 @@ extern "C" {
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
 
+#define BSPLINE				3
 			
 #define DRAWSYSTEM			0x1
 #define DRAWBRE				0x2
@@ -35,14 +36,18 @@ extern "C" {
 #define PADSYSTEM			0x10
 #define PADSCAN				0x20
 #define PADZL				0x30
-#define DRAWTYPE(gc)		(gc & 0xf)
-#define PADTYPE(gc)			(gc & 0xf0)
-#define ISDRAWSYSTEM(gc)	(gc & 0xf == DRAWSYSTEM)
-#define ISDRAWBRE(gc)		(gc & 0Xf == DRAWBRE)
-#define ISDRAWMID(gc)		(gc & 0xf == DRAWMID)
-#define ISPADSYSTEM(gc)		(gc & 0xf0 == PADSYSTEM)
-#define ISPADSCAN(gc)		(gc & 0xf0 == PADSCAN)
-#define ISPADZL(gc)			(gc & 0xf0 == PADZL)
+#define DRAWTYPEBIT			0xf
+#define PADTYPEBIT			0xf0
+#define DRAWTYPEMASK		~DRAWTYPEBIT
+#define PADTYPEMASK			~PADTYPEBIT
+#define DRAWTYPE(gc)		(gc & DRAWTYPEBIT)
+#define PADTYPE(gc)			(gc & PADTYPEBIT)
+#define ISDRAWSYSTEM(gc)	(gc & DRAWTYPEBIT == DRAWSYSTEM)
+#define ISDRAWBRE(gc)		(gc & DRAWTYPEBIT == DRAWBRE)
+#define ISDRAWMID(gc)		(gc & DRAWTYPEBIT == DRAWMID)
+#define ISPADSYSTEM(gc)		(gc & PADTYPEBIT == PADSYSTEM)
+#define ISPADSCAN(gc)		(gc & PADTYPEBIT == PADSCAN)
+#define ISPADZL(gc)			(gc & PADTYPEBIT == PADZL)
 
 	// 绘制方式，采用系统api or 自定义api
 	typedef enum gctype {
@@ -55,21 +60,21 @@ extern "C" {
 	} gctype;
 
 	void SetDrawTypeR(gctype *gc, int type) {
-		*gc = (gctype)(*gc & 0xf);
+		*gc = (gctype)(*gc & DRAWTYPEMASK);
 		*gc = (gctype)(*gc | type);
 	}
 
 	gctype SetDrawType(gctype gc, int type) {
-		return (gctype)((gc & 0xf) | type);
+		return (gctype)((gc & DRAWTYPEMASK) | type);
 	}
 
 	void SetPadTypeR(gctype *gc, int type) {
-		*gc = (gctype)(*gc & 0xf0);
+		*gc = (gctype)(*gc & PADTYPEMASK);
 		*gc = (gctype)(*gc | type);
 	}
 
 	gctype SetPadType(gctype gc, int type) {
-		return (gctype)((gc & 0xf0) | type);
+		return (gctype)((gc & PADTYPEMASK) | type);
 	}
 
 	// 图元属性
@@ -99,7 +104,7 @@ extern "C" {
 // 绘图方式为系统API
 #define DEFAULTLINEWID		2				// 线宽为2
 #define DEFAULTLINECOR		0				// 黑色
-#define DEFAULTPADCOR		0xff000000		// 透明
+#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
 #define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
 
 	// 图元类型
@@ -110,7 +115,8 @@ extern "C" {
 		RECTANGLE,
 		CURVE,
 		MULTILINE,
-		FMULTILINE	// 结构与MULTILINE相同
+		FMULTILINE,	// 结构与MULTILINE相同
+		BCURVE		// B样条曲线
 	} ImgType;
 
 	typedef struct MyPoint {
@@ -192,223 +198,112 @@ extern "C" {
 		return dis;
 	}
 
-	typedef struct Curve {
-		MyPoint* controlPoints; // 控制点的数组
-		int numPoints;        // 控制点的数量
-		int endNum;             // 当前存储的最后一个数值在数组中的位置
-		int maxNum;			 // 当前数组的最大容量
-	} MyCurve;
-
-	// 扫描数组，将空点删除
-	void ScanCurve(MyCurve* curve) {
-		if (curve->endNum == curve->numPoints) return;
-		int lastNull = 0;
-		for (int i = 0; i < curve->endNum; i++) {
-			if (curve->controlPoints[i].x == DBL_MAX && curve->controlPoints[i].y == DBL_MAX) continue;
-			curve->controlPoints[lastNull++] = curve->controlPoints[i];
-		}
-
-		curve->endNum = lastNull;
-		curve->numPoints = lastNull;
-	}
-
-	double GetMinDPoinToCurve(MyPoint p, MyCurve *curve) {
-		double dis = DBL_MAX;
-		ScanCurve(curve);
-		if (curve->endNum != curve->numPoints) {
-			return -1;
-		}
-		for (int i = 0; i < curve->endNum; ++i) {
-			MyLine segment = { curve->controlPoints[i], curve->controlPoints[i + 1] };
-			dis = min(dis, DistanceToLine(p, segment));
-		}
-		return dis;
-	}
-
-	void InitFromCurve(MyCurve* curve, MyCurve* another) {
-		curve->controlPoints = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
-		memcpy(curve->controlPoints, another->controlPoints, another->maxNum * sizeof(MyPoint));
-		curve->numPoints = another->numPoints;
-		curve->endNum = another->endNum;
-		curve->maxNum = another->maxNum;
-	}
-
-	void InitCurve(MyCurve* curve) {
-		curve->controlPoints = (MyPoint*)malloc(MAX_POINT * sizeof(MyPoint));
-		curve->numPoints = 0;
-		curve->endNum = 0;
-		curve->maxNum = MAX_POINT;
-	}
-
-	void AddPointToCurve(MyCurve* curve, MyPoint point) {
-		if (!curve->controlPoints) {
-			InitCurve(curve);
-		}
-		if (curve->endNum == curve->maxNum && curve->numPoints != curve->endNum) {
-			// 说明数组中间有空位，需要将后面的数据往前移动
-			ScanCurve(curve);
-		}
-
-		if (curve->numPoints == curve->maxNum) {
-			// 扩容
-			curve->controlPoints = (MyPoint*)realloc(curve->controlPoints, (curve->maxNum + ADD_POINT) * sizeof(MyPoint));
-			curve->maxNum += ADD_POINT;
-			if (!curve->controlPoints) return;
-		}
-		curve->controlPoints[curve->endNum++] = point;
-		curve->numPoints++;
-	}
-
-	void RemovePointFromCurve(MyCurve* curve, MyPoint point) {
-		// 从后往前查找第一个匹配的点
-		for (int i = curve->endNum - 1; i >= 0; i--) {
-			if (curve->controlPoints[i].x == point.x && curve->controlPoints[i].y == point.y) {
-				curve->controlPoints[i].x = DBL_MAX;
-				curve->controlPoints[i].y = DBL_MAX;
-				curve->numPoints--; // 更新点的数量
-				break;
-			}
-		}
-	}
-
-	void RemoveLastPoint(MyCurve* curve) {
-		// 默认最后一个点是有效的
-		if (curve->endNum > 0) {
-			curve->numPoints--;
-			curve->endNum--;
-		}
-	}
-
-	void MovePointTo(MyCurve* curve, MyPoint form, MyPoint to) {
-		// 将点from移动到点to
-		for (int i = curve->endNum - 1; i >= 0; i--) {
-			if (curve->controlPoints[i].x == form.x && curve->controlPoints[i].y == form.y) {
-				curve->controlPoints[i].x = to.x;
-				curve->controlPoints[i].y = to.y;
-				break;
-			}
-		}
-	}
-
-	// 获取存储Curve需要的空间
-	size_t GetCurveSize(MyCurve * curve) {
-		return sizeof(int) * 3 + sizeof(MyPoint) * curve->endNum;
-	}
-
-	void ClearCurve(MyCurve* curve) {
-		free(curve->controlPoints);
-		curve->controlPoints = NULL;
-		curve->numPoints = 0;
-		curve->endNum = 0;
-		curve->maxNum = MAX_POINT;
-	}
-
-	typedef struct Multiline {
+	typedef struct MultPoint {
 		MyPoint* points; // 多义线的顶点数组
 		int numPoints; // 顶点的数量
 		int endNum;    // 当前存储的最后一个数值在数组中的位置
 		int maxNum;			 // 当前数组的最大容量
-	} MyMultiline;
+	} MyMultiPoint;
 
-	void ScanMultiline(MyMultiline* multiline) {
-		if (multiline->endNum == multiline->numPoints) return;
+	void ScanMultipoint(MyMultiPoint* multipoint) {
+		if (multipoint->endNum == multipoint->numPoints) return;
 		int lastNull = 0;
-		for (int i = 0; i < multiline->endNum; i++) {
-			if (multiline->points[i].x == DBL_MAX && multiline->points[i].y == DBL_MAX) continue;
-			multiline->points[lastNull++] = multiline->points[i];
+		for (int i = 0; i < multipoint->endNum; i++) {
+			if (multipoint->points[i].x == DBL_MAX && multipoint->points[i].y == DBL_MAX) continue;
+			multipoint->points[lastNull++] = multipoint->points[i];
 		}
 
-		multiline->endNum = lastNull;
-		multiline->numPoints = lastNull;
+		multipoint->endNum = lastNull;
+		multipoint->numPoints = lastNull;
 	}
 
-	double GetMinDPointToMultiline(MyPoint p, MyMultiline* multiline) {
+	double GetMinDPointToMultipoint(MyPoint p, MyMultiPoint* multipoint) {
 		double dis = DBL_MAX;
-		ScanMultiline(multiline);
-		if (multiline->endNum != multiline->numPoints) {
+		ScanMultipoint(multipoint);
+		if (multipoint->endNum != multipoint->numPoints) {
 			return -1;
 		}
-		for (int i = 0; i < multiline->endNum; ++i) {
-			MyLine segment = { multiline->points[i], multiline->points[i + 1] };
+		for (int i = 0; i < multipoint->endNum; ++i) {
+			MyLine segment = { multipoint->points[i], multipoint->points[i + 1] };
 			dis = min(dis, DistanceToLine(p, segment));
 		}
 		return dis;
 	}
 
-	void InitFromMultiline(MyMultiline* multiline, MyMultiline* another) {
-		multiline->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
-		memcpy(multiline->points, another->points, another->maxNum * sizeof(MyPoint));
-		multiline->numPoints = another->numPoints;
-		multiline->endNum = another->endNum;
-		multiline->maxNum = another->maxNum;
+	void InitFromMultipoint(MyMultiPoint* multipoint, MyMultiPoint* another) {
+		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
+		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));
+		multipoint->numPoints = another->numPoints;
+		multipoint->endNum = another->endNum;
+		multipoint->maxNum = another->maxNum;
 	}
 
-	void InitMultiline(MyMultiline* multiline) {
-		multiline->points = (MyPoint*)malloc(MAX_POINT * sizeof(MyPoint));
-		multiline->numPoints = 0;
-		multiline->endNum = 0;
-		multiline->maxNum = MAX_POINT;
+	void InitMultipoint(MyMultiPoint* multipoint) {
+		multipoint->points = (MyPoint*)malloc(MAX_POINT * sizeof(MyPoint));
+		multipoint->numPoints = 0;
+		multipoint->endNum = 0;
+		multipoint->maxNum = MAX_POINT;
 	}
 
-	void AddPointToMultiline(MyMultiline* multiline, MyPoint point) {
-		if (!multiline->points) {
-			InitMultiline(multiline);
+	void AddPointToMultipoint(MyMultiPoint* multipoint, MyPoint point) {
+		if (!multipoint->points) {
+			InitMultipoint(multipoint);
 		}
-		if (multiline->endNum == multiline->maxNum && multiline->numPoints != multiline->endNum) {
+		if (multipoint->endNum == multipoint->maxNum && multipoint->numPoints != multipoint->endNum) {
 			// 说明数组中间有空位，需要将后面的数据往前移动
-			ScanMultiline(multiline);
+			ScanMultipoint(multipoint);
 		}
 
-		if (multiline->numPoints == multiline->maxNum) {
+		if (multipoint->numPoints == multipoint->maxNum) {
 			// 扩容
-			multiline->points = (MyPoint*)realloc(multiline->points, (multiline->maxNum + ADD_POINT) * sizeof(MyPoint));
-			multiline->maxNum += ADD_POINT;
+			multipoint->points = (MyPoint*)realloc(multipoint->points, (multipoint->maxNum + ADD_POINT) * sizeof(MyPoint));
+			multipoint->maxNum += ADD_POINT;
 		}
-		multiline->points[multiline->endNum++] = point;
-		multiline->numPoints++;
+		multipoint->points[multipoint->endNum++] = point;
+		multipoint->numPoints++;
 	}
 
-	void RemovePointFromMultiline(MyMultiline* multiline, MyPoint point) {
+	void RemovePointFromMultipoint(MyMultiPoint* multipoint, MyPoint point) {
 		// 从后往前查找第一个匹配的点
-		for (int i = multiline->endNum - 1; i >= 0; i--) {
-			if (multiline->points[i].x == point.x && multiline->points[i].y == point.y) {
-				multiline->points[i].x = DBL_MAX;
-				multiline->points[i].y = DBL_MAX;
-				multiline->numPoints--; // 更新点的数量
+		for (int i = multipoint->endNum - 1; i >= 0; i--) {
+			if (multipoint->points[i].x == point.x && multipoint->points[i].y == point.y) {
+				multipoint->points[i].x = DBL_MAX;
+				multipoint->points[i].y = DBL_MAX;
+				multipoint->numPoints--; // 更新点的数量
 				break;
 			}
 		}
 	}
 
-	void RemoveLastPointM(MyMultiline* multiline) {
+	void RemoveLastPointM(MyMultiPoint* multipoint) {
 		// 默认最后一个点是有效的
-		if (multiline->endNum > 0) {
-			multiline->numPoints--;
-			multiline->endNum--;
+		if (multipoint->endNum > 0) {
+			multipoint->numPoints--;
+			multipoint->endNum--;
 		}
 	}
 
-	void MovePointToM(MyMultiline* multiline, MyPoint form, MyPoint to) {
+	void MovePointToM(MyMultiPoint* multipoint, MyPoint form, MyPoint to) {
 		// 将点from移动到点to
-		for (int i = multiline->endNum - 1; i >= 0; i--) {
-			if (multiline->points[i].x == form.x && multiline->points[i].y == form.y) {
-				multiline->points[i].x = to.x;
-				multiline->points[i].y = to.y;
+		for (int i = multipoint->endNum - 1; i >= 0; i--) {
+			if (multipoint->points[i].x == form.x && multipoint->points[i].y == form.y) {
+				multipoint->points[i].x = to.x;
+				multipoint->points[i].y = to.y;
 				break;
 			}
 		}
 	}
 
-	size_t GetMultilineSize(MyMultiline* ml) {
+	size_t GetMultipointSize(MyMultiPoint* ml) {
 		return sizeof(int) * 3 + sizeof(MyPoint) * ml->endNum;
 	}
 
-	void ClearMultiline(MyMultiline* multiline) {
-		free(multiline->points);
-		multiline->points = NULL;
-		multiline->numPoints = 0;
-		multiline->endNum = 0;
-		multiline->maxNum = MAX_POINT;
+	void ClearMultipoint(MyMultiPoint* multipoint) {
+		free(multipoint->points);
+		multipoint->points = NULL;
+		multipoint->numPoints = 0;
+		multipoint->endNum = 0;
+		multipoint->maxNum = MAX_POINT;
 	}
 
 	typedef struct DrawInfo {
@@ -418,8 +313,7 @@ extern "C" {
 			MyLine line;
 			MyCircle circle;
 			MyRectangle rectangle;
-			MyCurve curve;
-			MyMultiline multiline;
+			MyMultiPoint multipoint;
 		};
 	} DrawInfo;
 
@@ -448,20 +342,12 @@ extern "C" {
 			break;
 		}
 		case CURVE:
-		{
-			for (int i = 0; i < draw->curve.endNum; i++) {
-				if (draw->curve.controlPoints[i].x == DBL_MAX || draw->curve.controlPoints[i].y == DBL_MAX) continue;
-				draw->curve.controlPoints[i].x += x;
-				draw->curve.controlPoints[i].y += y;
-			}
-			break;
-		}
 		case MULTILINE:
 		{
-			for (int i = 0; i < draw->multiline.endNum; i++) {
-				if (draw->curve.controlPoints[i].x == DBL_MAX || draw->curve.controlPoints[i].y == DBL_MAX) continue;
-				draw->multiline.points[i].x += x;
-				draw->multiline.points[i].y += y;
+			for (int i = 0; i < draw->multipoint.endNum; i++) {
+				if (draw->multipoint.points[i].x == DBL_MAX || draw->multipoint.points[i].y == DBL_MAX) continue;
+				draw->multipoint.points[i].x += x;
+				draw->multipoint.points[i].y += y;
 			}
 			break;
 		}
@@ -473,16 +359,10 @@ extern "C" {
 	void ClearDrawingImg(DrawInfo* drawing) {
 		switch (drawing->type) {
 		case CURVE:
-		{
-			if (drawing->curve.controlPoints) {
-				ClearCurve(&(drawing->curve));
-			}
-			break;
-		}
 		case MULTILINE:
 		{
-			if (drawing->multiline.points) {
-				ClearMultiline(&(drawing->multiline));
+			if (drawing->multipoint.points) {
+				ClearMultipoint(&(drawing->multipoint));
 			}
 			break;
 		}
@@ -629,12 +509,9 @@ extern "C" {
 			size += sizeof(MyRectangle);
 			break;
 		case CURVE:
-			ScanCurve(&di->curve);
-			size += GetCurveSize(&(di->curve));
-			break;
 		case MULTILINE:
-			ScanMultiline(&di->multiline);
-			size += GetMultilineSize(&(di->multiline));
+			ScanMultipoint(&di->multipoint);
+			size += GetMultipointSize(&(di->multipoint));
 			break;
 		default:
 			break;
@@ -675,20 +552,12 @@ extern "C" {
 			break;
 
 		case CURVE:
-			IntToByte(draw.curve.numPoints, &buffer, byteSize); // Add number of control points
-			IntToByte(draw.curve.endNum, &buffer, byteSize); // Add endNum
-			IntToByte(draw.curve.maxNum, &buffer, byteSize); // Add maxNum
-			for (int i = 0; i < draw.curve.endNum; i++) {
-				PointToBytes(draw.curve.controlPoints[i], &buffer, byteSize); // Add each control point
-			}
-			break;
-
 		case MULTILINE:
-			IntToByte(draw.multiline.numPoints, &buffer, byteSize); // Add number of points
-			IntToByte(draw.multiline.endNum, &buffer, byteSize); // Add endNum
-			IntToByte(draw.multiline.maxNum, &buffer, byteSize); // Add maxNum
-			for (int i = 0; i < draw.multiline.endNum; i++) {
-				PointToBytes(draw.multiline.points[i], &buffer, byteSize); // Add each point
+			IntToByte(draw.multipoint.numPoints, &buffer, byteSize); // Add number of points
+			IntToByte(draw.multipoint.endNum, &buffer, byteSize); // Add endNum
+			IntToByte(draw.multipoint.maxNum, &buffer, byteSize); // Add maxNum
+			for (int i = 0; i < draw.multipoint.endNum; i++) {
+				PointToBytes(draw.multipoint.points[i], &buffer, byteSize); // Add each point
 			}
 			break;
 
@@ -721,22 +590,13 @@ extern "C" {
 			break;
 
 		case CURVE:
-			draw.curve.numPoints = byteToInt(buffer, index);
-			draw.curve.endNum = byteToInt(buffer, index);
-			draw.curve.maxNum = byteToInt(buffer, index);
-			draw.curve.controlPoints = (MyPoint*)malloc(draw.curve.numPoints * sizeof(MyPoint));
-			for (int i = 0; i < draw.curve.endNum; i++) {
-				draw.curve.controlPoints[i] = BytesToPoint(buffer, index);
-			}
-			break;
-
 		case MULTILINE:
-			draw.multiline.numPoints = byteToInt(buffer, index);
-			draw.multiline.endNum = byteToInt(buffer, index);
-			draw.multiline.maxNum = byteToInt(buffer, index);
-			draw.multiline.points = (MyPoint*)malloc(draw.multiline.numPoints * sizeof(MyPoint));
-			for (int i = 0; i < draw.multiline.endNum; i++) {
-				draw.multiline.points[i] = BytesToPoint(buffer, index);
+			draw.multipoint.numPoints = byteToInt(buffer, index);
+			draw.multipoint.endNum = byteToInt(buffer, index);
+			draw.multipoint.maxNum = byteToInt(buffer, index);
+			draw.multipoint.points = (MyPoint*)malloc(draw.multipoint.numPoints * sizeof(MyPoint));
+			for (int i = 0; i < draw.multipoint.endNum; i++) {
+				draw.multipoint.points[i] = BytesToPoint(buffer, index);
 			}
 			break;
 		default:

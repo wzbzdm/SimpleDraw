@@ -23,6 +23,8 @@
 #define IDC_MOVE                        157
 #define IDB_COLOR                       162
 #define DRAW_FMULTI                     165
+#define IDR_DRAWBCURVE                  169
+#define DRAW_BCURVE                     169
 #define IDC_EDIT1                       1001
 #define DRAW_LINE                       32775
 #define DRAW_CIRCLE                     32776
@@ -44,7 +46,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        169
+#define _APS_NEXT_RESOURCE_VALUE        173
 #define _APS_NEXT_COMMAND_VALUE         32802
 #define _APS_NEXT_CONTROL_VALUE         1002
 #define _APS_NEXT_SYMED_VALUE           110

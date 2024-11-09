@@ -8,8 +8,9 @@
 #define MAX_LOADSTRING 100
 
 // 定时器
-#define REDRAW 1
-#define REDRAW_INTERVAL 8 // 8毫秒
+#define REDRAW				1
+#define HZ					200
+#define REDRAW_INTERVAL		1000 / HZ
 bool needRedraw = false;
 #define NeedRedraw()	(needRedraw = true)
 #define Redraw()		(needRedraw = false)
@@ -34,10 +35,13 @@ int WindowMode = 2;			// 1: 画布模式 2: 坐标系模式
 
 HDC hdcMemFixed;			// 固定图像内存DC
 HDC hdcMemPreview;			// 预览图像内存DC
+HDC hdcMemCoS;				// 计算或选中图像内存DC
 HBITMAP hbmMemFixed;		// 固定图像位图
 HBITMAP hbmMemPreview;		// 预览图像位图
 HBITMAP hbmOldFixed;		// 原固定位图
 HBITMAP hbmOldPreview;		// 原预览位图
+HBITMAP hbmmemCoS;			// 计算或选中图像位图
+HBITMAP hbmOldCoS;			// 原计算或选中位图
 RECT canvasRect;			// 画布矩形
 
 // 全局变量用于保存光标的原始样式
@@ -69,9 +73,7 @@ void				InitializeBuffers(HWND hWnd);
 void				Cleanup();
 void				RedrawFixedContent(HWND hCWnd, HDC hdc);
 void				ClearPreviewContent(HDC hdc);
-void				InitGDIPlus();
 void				EnableMouseTracking(HWND hWnd);
-void				ShutdownGDIPlus();
 void 				LoadMyCustomCuser();
 void				ShowAllCalPoint(HDC hdc);
 void				CalAndShowPoint();
@@ -287,65 +289,38 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 	TBADDBITMAP tbAddBitmap;
 	tbAddBitmap.hInst = hInst;
 
-	tbAddBitmap.nID = CHOOSE; // 工具栏的选择位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_LINE;  // 工具栏的线位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_CIRCLE; // 工具栏的圆位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_RECT; // 工具栏的矩形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_CURVE; // 工具栏的曲线位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_MUTILINE; // 工具栏的多边形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = DRAW_FMULTI;	// 工具栏的封闭多边形位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = FITSCREEN; // 工具栏的适应屏幕位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
-
-	tbAddBitmap.nID = CLEARIMG; // 工具栏的清空位图资源
-	SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
+	const INT toolids[] = {
+		CHOOSE, DRAW_LINE, DRAW_CIRCLE, DRAW_RECT, DRAW_CURVE, DRAW_BCURVE, DRAW_MUTILINE, DRAW_FMULTI, FITSCREEN, CLEARIMG
+	};
 
 	const wchar_t* tooltips[] = {
-	L"选择", L"线", L"圆", L"矩形", L"曲线", L"多义线", L"封闭多义线", L"适应屏幕", L"清空"
+	L"选择", L"线", L"圆", L"矩形", L"曲线", L"B样条", L"多义线", L"封闭多义线", L"适应屏幕", L"清空"
 	};
+
+	size_t tools = sizeof(toolids) / sizeof(INT);
+
+	for (int i = 0; i < tools; i++) {
+		tbAddBitmap.nID = toolids[i]; // 工具栏的清空位图资源
+		SendMessage(hToolBar, TB_ADDBITMAP, 1, (LPARAM)&tbAddBitmap);
+	}
 
 	// 定义按钮
-	TBBUTTON tbButtons[9] = {
-		{ MAKELONG(0, 0), CHOOSE, TBSTATE_ENABLED | TBSTATE_CHECKED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[0]},
-		{ MAKELONG(1, 0), DRAW_LINE,   TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[1] },
-		{ MAKELONG(2, 0), DRAW_CIRCLE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[2] },
-		{ MAKELONG(3, 0), DRAW_RECT, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[3] },
-		{ MAKELONG(4, 0), DRAW_CURVE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[4] },
-		{ MAKELONG(5, 0), DRAW_MUTILINE, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[5] },
-		{ MAKELONG(6, 0), DRAW_FMULTI, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[6] },
-		{ MAKELONG(7, 0), FITSCREEN, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[7] },
-		{ MAKELONG(8, 0), CLEARIMG, TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[8] }
-	};
+	TBBUTTON tbButtons[10] = {};
+
+	for (int i = 0; i < tools; i++) {
+		tbButtons[i] = { MAKELONG(i, 0), toolids[i], TBSTATE_ENABLED, BTNS_BUTTON, {0}, 0, (INT_PTR)tooltips[i] };
+	}
 
 	// 初始化状态管理
-	InitState(cs, 9, CHOOSE); // 初始化绘图状态
-	AddIdToState(cs, CHOOSE); // 默认选择按钮
-	AddIdToState(cs, DRAW_LINE);
-	AddIdToState(cs, DRAW_CIRCLE);
-	AddIdToState(cs, DRAW_RECT);
-	AddIdToState(cs, DRAW_CURVE);
-	AddIdToState(cs, DRAW_MUTILINE);
-	AddIdToState(cs, DRAW_FMULTI);
-	AddIdToState(cs, FITSCREEN);
-	AddIdToState(cs, CLEARIMG);
+	InitState(cs, 10, CHOOSE); // 初始化绘图状态
+
+	for (int i = 0; i < tools; i++) {
+		AddIdToState(cs, toolids[i]); // 默认选择按钮
+	}
 
 	// 添加按钮到工具栏
 	SendMessage(hToolBar, TB_ADDBUTTONS, sizeof(tbButtons) / sizeof(TBBUTTON), (LPARAM)&tbButtons);
-
+	SendMessage(hToolBar, TB_CHECKBUTTON, CHOOSE, TRUE);
 	SendMessage(hToolBar, TB_SETMAXTEXTROWS, 0, 0);
 
 	// 手动设置每个按钮的工具提示文本（悬停提示）
@@ -655,6 +630,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ClearDrawingImg(&drawing); // 清空当前绘制的图形
 			ClearStoreImg(&allImg); // 清空图形
 			ClearPreviewContent(hdcMemPreview); // 清空预览画布
+			ClearPreviewContent(hdcMemCoS);		// 清空计算或选中画布
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			NeedRedraw();
 			break;
@@ -691,6 +667,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
 
 			break;
+		case DRAW_BCURVE:
+			SetToolBarCheck(hToolBar, cs, DRAW_BCURVE);
+			setType(mst, DRAWBCURVE);
+			drawing.type = BCURVE;
+			drawing.proper = customProperty;
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
+
+			break;
 		case DRAW_MUTILINE:
 			SetToolBarCheck(hToolBar, cs, DRAW_MUTILINE);
 			setType(mst, DRAWMULTILINE);
@@ -708,8 +692,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			break;
 		case FITSCREEN:
+			ClearPreviewContent(hdcMemPreview);
+			ClearPreviewContent(hdcMemCoS);
 			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+			RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 			NeedRedraw();
 			break;
 		default:
@@ -929,7 +916,8 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			25, 300, 150, 65, hSWnd, (HMENU)5, hInst, NULL);
 
 		SendMessage(bgColorSlider, CUSTOM_TITLE_CHANGE, NULL, (LPARAM)L"背景:");
-		SendMessage(ColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)2);
+		SendMessage(bgColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)2);
+		SendMessage(bgColorSlider, CUSTOM_SET_COLOR, (WPARAM)2, (LPARAM)DEFAULTPADCOR);
 
 		DWORD dwError = GetLastError();
 
@@ -1115,6 +1103,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 先将固定的图形叠加到预览hdc中到窗口
 			BitBlt(hdcMemPreview, 0, 0, canvasWidth, canvasHeight, hdcMemFixed, 0, 0, SRCAND);
 
+			// 将CoS窗口叠加到预览hdc中到窗口, 辅助线段或计算结果保存到此
+			BitBlt(hdcMemPreview, 0, 0, canvasWidth, canvasHeight, hdcMemCoS, 0, 0, SRCAND);
+
 			// 然后将预览内容叠加到窗口上
 			BitBlt(hdc, 0, 0, canvasWidth, canvasHeight, hdcMemPreview, 0, 0, SRCCOPY);
 
@@ -1200,10 +1191,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (DrawStateInit(mst)) {
 				mst.lastLButtonPoint = point;
 				// 初始化 mst.
-				InitMultiline(&(drawing.multiline));
+				InitMultipoint(&(drawing.multipoint));
 				MyPoint lastPoint;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToMultiline(&(drawing.multiline), lastPoint);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
 			}
 			else {
 				// 画一条线
@@ -1212,7 +1203,55 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				mst.lastLButtonPoint = point;
 				MyPoint lastPoint;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToMultiline(&(drawing.multiline), lastPoint);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+			}
+			break;
+		}
+		case DRAWBCURVE:
+		{
+			// B样条绘制
+			// 将当前点保存到DrawInfo中
+			if (DrawStateInit(mst)) {
+				// 初始化 mst.
+				InitMultipoint(&(drawing.multipoint));
+				MyPoint lastPoint;
+				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+				mst.lastLButtonPoint = point;
+			}
+			// 1个点
+			else if(drawing.multipoint.numPoints == 1){
+				// 将当前点保存到DrawInfo中
+				MyPoint lastPoint;
+				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+
+				DrawXLine(hdcMemCoS, mst.lastLButtonPoint, point, 1);
+				mst.lastLButtonPoint = point;
+			}
+			// 两个点
+			else {
+				MyPoint lastPoint;
+				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
+
+				ScanMultipoint(&(drawing.multipoint));
+				POINT* pts;
+				if (drawing.multipoint.numPoints < BSPLINE + 1) {
+					pts = mapMyPoints(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.numPoints);
+					DrawABCurveHelp(hdcMemCoS, pts[0], pts[1], pts[2], BSPLINE);
+					delete[] pts;
+					break;
+				}
+				pts = mapLastMyPoints(drawing.multipoint.points, BSPLINE + 1, drawing.multipoint.numPoints);
+				POINT* pts2 = new POINT[3];
+				for (int i = 0; i < 3; i++) {
+					pts2[i] = pts[i + BSPLINE - 2];
+				}
+				DrawABCurveHelp(hdcMemCoS, pts2[0], pts2[1], pts2[2], BSPLINE);
+				DrawFBCurve(hdcMemFixed, pts, BSPLINE, &customProperty);
+				delete[] pts;
+				delete[] pts2;
 			}
 			break;
 		}
@@ -1221,15 +1260,15 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 曲线绘制, 先设置起点和终点
 			if (DrawStateInit(mst)) {
 				mst.lastLButtonPoint = point;
-				InitCurve(&(drawing.curve));
+				InitMultipoint(&(drawing.multipoint));
 				MyPoint lastPoint;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToCurve(&(drawing.curve), lastPoint);
+				AddPointToMultipoint(&(drawing.multipoint), lastPoint);
 			}
 			else {
 				MyPoint nowpoint;
 				PointToCoordinate(coordinate, point, nowpoint.x, nowpoint.y);
-				AddPointToCurve(&(drawing.curve), nowpoint);
+				AddPointToMultipoint(&(drawing.multipoint), nowpoint);
 				mst.lastLButtonPoint = point;
 			}
 			break;
@@ -1414,7 +1453,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 完成绘制逻辑
 			// 保存绘图信息
-			if (DrawStateInit(mst) || !drawing.multiline.points) {
+			if (DrawStateInit(mst) || !drawing.multipoint.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearPreviewContent(hdcMemPreview);
 				NeedRedraw();
@@ -1423,11 +1462,11 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			DrawInfo mline;
 			mline.type = MULTILINE;
 			mline.proper = drawing.proper;
-			InitFromMultiline(&(mline.multiline), &(drawing.multiline));
+			InitFromMultipoint(&(mline.multipoint), &(drawing.multipoint));
 			AddDrawInfoToStoreImg(&allImg, mline);
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
-			ClearMultiline(&(drawing.multiline));
+			ClearMultipoint(&(drawing.multipoint));
 			ClearPreviewContent(hdcMemPreview);
 			NeedRedraw();
 			break;
@@ -1436,7 +1475,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 完成绘制逻辑
 			// 保存绘图信息
-			if (DrawStateInit(mst) || !drawing.multiline.points) {
+			if (DrawStateInit(mst) || !drawing.multipoint.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearPreviewContent(hdcMemPreview);
 				NeedRedraw();
@@ -1444,20 +1483,52 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			// 画一条第一个点到最后一个点的直线
 			POINT p1, p2;
-			p1 = mapCoordinate(coordinate, drawing.multiline.points[0].x, drawing.multiline.points[0].y);
-			int last = drawing.multiline.endNum - 1;
-			p2 = mapCoordinate(coordinate, drawing.multiline.points[last].x, drawing.multiline.points[last].y);
+			p1 = mapCoordinate(coordinate, drawing.multipoint.points[0].x, drawing.multipoint.points[0].y);
+			int last = drawing.multipoint.endNum - 1;
+			p2 = mapCoordinate(coordinate, drawing.multipoint.points[last].x, drawing.multipoint.points[last].y);
 			DrawLine(hdcMemFixed, p1, p2, &customProperty);
+
+			POINT* pts = mapMyPoints(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum);
+			DrawFMultiLine(hdcMemFixed, pts, drawing.multipoint.numPoints, &customProperty);
+			delete[] pts;
 
 			DrawInfo mline;
 			mline.type = FMULTILINE;
 			mline.proper = drawing.proper;
-			InitFromMultiline(&(mline.multiline), &(drawing.multiline));
+			InitFromMultipoint(&(mline.multipoint), &(drawing.multipoint));
 			AddDrawInfoToStoreImg(&allImg, mline);
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
-			ClearMultiline(&(drawing.multiline));
+			ClearMultipoint(&(drawing.multipoint));
 			ClearPreviewContent(hdcMemPreview);
+			NeedRedraw();
+			break;
+		}
+		case DRAWBCURVE:
+		{
+			if (DrawStateInit(mst) || !drawing.multipoint.points) {
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
+				break;
+			}
+			if (drawing.multipoint.numPoints <= BSPLINE) {
+				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
+				ClearMultipoint(&(drawing.multipoint));
+				ClearPreviewContent(hdcMemPreview);
+				ClearPreviewContent(hdcMemCoS);
+				NeedRedraw();
+				break;
+			}
+			DrawInfo bcurve;
+			bcurve.type = BCURVE;
+			bcurve.proper = drawing.proper;
+			InitFromMultipoint(&(bcurve.multipoint), &(drawing.multipoint));
+			AddDrawInfoToStoreImg(&allImg, bcurve);
+
+			// 清空状态
+			mst.lastLButtonPoint = { -1, -1 };
+			ClearMultipoint(&(drawing.multipoint));
+			ClearPreviewContent(hdcMemPreview);
+			ClearPreviewContent(hdcMemCoS);
 			NeedRedraw();
 			break;
 		}
@@ -1465,42 +1536,38 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 完成绘制逻辑
 			// 保存绘图信息
-			if (DrawStateInit(mst) || !drawing.multiline.points) {
+			if (DrawStateInit(mst) || !drawing.multipoint.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				break;
 			}
 			DrawInfo curve;
 			curve.proper = drawing.proper;
 			curve.type = CURVE;
-			InitFromCurve(&(curve.curve), &(drawing.curve));
+			InitFromMultipoint(&(curve.multipoint), &(drawing.multipoint));
 			AddDrawInfoToStoreImg(&allImg, curve);
 			// 绘制到固定画布上
-			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing.curve.numPoints];
+			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing.multipoint.numPoints];
 			int count = 0;
-			for (int i = 0; i < drawing.curve.endNum; i++) {
-				MyPoint pt = drawing.curve.controlPoints[i];
+			for (int i = 0; i < drawing.multipoint.endNum; i++) {
+				MyPoint pt = drawing.multipoint.points[i];
 				if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
 				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 			}
-			if (count == drawing.curve.numPoints)
+			if (count == drawing.multipoint.numPoints)
 			{
 				// GDI+绘图
 				Graphics graphics(hdcMemFixed);
 				int color = drawing.proper.color;
-				// 提取 ARGB 组件
-				int red = color & 0xFF;   // 提取 Red 分量
-				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
-				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
 
-				Pen pen(Color(255, red, green, blue), drawing.proper.width);
-				graphics.DrawCurve(&pen, gdiplusPoints, drawing.curve.numPoints);
+				Pen pen(Color(255, GetRValue(color), GetGValue(color), GetBValue(color)), drawing.proper.width);
+				graphics.DrawCurve(&pen, gdiplusPoints, drawing.multipoint.numPoints);
 			}
 
 			delete[] gdiplusPoints;
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
-			ClearCurve(&(drawing.curve));
+			ClearMultipoint(&(drawing.multipoint));
 			ClearPreviewContent(hdcMemPreview);
 			NeedRedraw();
 			break;
@@ -1620,17 +1687,57 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
 				ClearPreviewContent(hdcMemPreview);
-				MyPoint firstM = drawing.multiline.points[0];
+				MyPoint firstM = drawing.multipoint.points[0];
 				POINT first = mapCoordinate(coordinate, firstM.x, firstM.y);
 
+				// 填充
+				if (drawing.multipoint.numPoints >= 2) {
+					POINT* pts = mapPointsAddOne(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum, point);
+					PadColor(hdcMemPreview, pts, drawing.multipoint.numPoints + 1, customProperty.bgcolor, customProperty.type);
+					delete[]pts;
+				}
+				
 				// 画虚线
-				if (drawing.multiline.numPoints > 1) {
+				if (drawing.multipoint.numPoints > 1) {
 					DrawXLine(hdcMemPreview, point, first, &customProperty);
 				}
 				// 画线
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				NeedRedraw();
+			}
+			break;
+		}
+		case DRAWBCURVE:
+		{
+			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
+				ClearPreviewContent(hdcMemPreview);
+				if (drawing.multipoint.numPoints == 1) {
+					DrawXLine(hdcMemPreview, mst.lastLButtonPoint, point, 1);
+					NeedRedraw();
+					break;
+				}
+				else {
+					ScanMultipoint(&(drawing.multipoint));
+					POINT* pts;
+					if (drawing.multipoint.numPoints < BSPLINE) {
+						pts = mapLastMyPointsAddOne(drawing.multipoint.points, 2, drawing.multipoint.numPoints, point);
+						DrawABCurveHelp(hdcMemPreview, pts[0], pts[1], pts[2], BSPLINE);
+						NeedRedraw();
+						delete[] pts;
+						break;
+					}
+					pts = mapLastMyPointsAddOne(drawing.multipoint.points, BSPLINE, drawing.multipoint.endNum, point);
+					POINT* pts2 = new POINT[3];
+					for (int i = 0; i < 3; i++) {
+						pts2[i] = pts[i + BSPLINE - 2];
+					}
+					DrawABCurveHelp(hdcMemPreview, pts2[0], pts2[1], pts2[2], BSPLINE);
+					DrawFBCurve(hdcMemPreview, pts, BSPLINE, &customProperty);
+					NeedRedraw();
+					delete[] pts;
+					delete[] pts2;
+				}
 			}
 			break;
 		}
@@ -1661,27 +1768,23 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWCURVE:
 		{
 			// GDI+绘图
-			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing.curve.numPoints + 1];
+			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing.multipoint.numPoints + 1];
 			int count = 0;
-			for (int i = 0; i < drawing.curve.endNum; i++) {
-				MyPoint pt = drawing.curve.controlPoints[i];
+			for (int i = 0; i < drawing.multipoint.endNum; i++) {
+				MyPoint pt = drawing.multipoint.points[i];
 				if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
 				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 			}
-			if (count == drawing.curve.numPoints) {
+			if (count == drawing.multipoint.numPoints) {
 				ClearPreviewContent(hdcMemPreview);
 				gdiplusPoints[count] = Gdiplus::Point(point.x, point.y);
 				// 画曲线
 				Graphics graphics(hdcMemPreview);
 				int color = drawing.proper.color;
-				// 提取 ARGB 组件
-				int red = color & 0xFF;   // 提取 Red 分量
-				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
-				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
 
-				Pen pen(Color(255, red, green, blue), drawing.proper.width);
-				graphics.DrawCurve(&pen, gdiplusPoints, drawing.curve.numPoints + 1);
+				Pen pen(Color(255, GetRValue(color), GetGValue(color), GetBValue(color)), drawing.proper.width);
+				graphics.DrawCurve(&pen, gdiplusPoints, drawing.multipoint.numPoints + 1);
 				// 触发重绘
 				NeedRedraw();
 			}
@@ -1770,7 +1873,14 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		UpdateStatusBarRadius(coordinate.radius);
 
 		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
+		ClearPreviewContent(hdcMemCoS);
+		RedrawCoSContent(hCWnd, hdcMemCoS);
 		ClearPreviewContent(hdcMemPreview);
+
+		// 触发鼠标移动事件
+		LPARAM l = MAKELPARAM(point.x, point.y);
+		WPARAM w = 0;
+		SendMessage(hCWnd, WM_MOUSEMOVE, w, l);
 		// 重新绘制窗口（触发 WM_PAINT）
 		NeedRedraw();
 		break;
@@ -1834,10 +1944,15 @@ void InitializeBuffers(HWND hWnd) {
 	hbmMemPreview = CreateCompatibleBitmap(hdcScreen, canvasRect.right - canvasRect.left, canvasRect.bottom - canvasRect.top);
 	hbmOldPreview = (HBITMAP)SelectObject(hdcMemPreview, hbmMemPreview);
 
+	hdcMemCoS = CreateCompatibleDC(hdcScreen);
+	hbmmemCoS = CreateCompatibleBitmap(hdcScreen, canvasRect.right - canvasRect.left, canvasRect.bottom - canvasRect.top);
+	hbmOldCoS = (HBITMAP)SelectObject(hdcMemCoS, hbmmemCoS);
+
 	// 设置为白色背景
 	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
 	FillRect(hdcMemFixed, &canvasRect, hBrush);
 	FillRect(hdcMemPreview, &canvasRect, hBrush);
+	FillRect(hdcMemCoS, &canvasRect, hBrush);
 
 	DeleteObject(hBrush);
 	ReleaseDC(hWnd, hdcScreen);
@@ -1852,17 +1967,10 @@ void Cleanup() {
 	SelectObject(hdcMemPreview, hbmOldPreview);
 	DeleteObject(hbmMemPreview);
 	DeleteDC(hdcMemPreview);
-}
 
-// 初始化 GDI+
-void InitGDIPlus() {
-	GdiplusStartupInput gdiplusStartupInput;
-	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-}
-
-// 关闭 GDI+
-void ShutdownGDIPlus() {
-	GdiplusShutdown(gdiplusToken);
+	SelectObject(hdcMemCoS, hbmOldCoS);
+	DeleteObject(hbmmemCoS);
+	DeleteDC(hdcMemCoS);
 }
 
 void ShowAllCalPoint(HDC hdc) {
