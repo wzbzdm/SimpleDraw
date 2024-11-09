@@ -119,6 +119,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);cudart.lib</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <AdditionalOptions>-allow-unsupported-compiler %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -184,9 +187,6 @@
     <None Include="drawing.cur" />
     <None Include="idcmove.cur" />
     <None Include="README.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <CudaCompile Include="cudaCalc.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

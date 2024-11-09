@@ -11,6 +11,7 @@ ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
 GdiplusStartupInput gdiplusStartupInput; // GDI+ 初始化输入
 
 void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro);
+void DrawBCurveHelp(HDC hdc, POINT* points, int degree, int n, const DrawUnitProperty* pro);
 
 // 初始化 GDI+
 void InitGDIPlus() {
@@ -188,10 +189,35 @@ POINT* mapMyPoints(MyPoint* mp, int length, int end) {
 	return points;
 }
 
+POINT* mapLastMyPoints(MyPoint* mp, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
+		MyPoint pt = mp[i];
+		points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+	}
+
+	return points;
+}
+
 POINT* mapPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
 	POINT* points = new POINT[length+1];
 	int count = 0;
 	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
+POINT* mapLastMyPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
+	POINT* points = new POINT[length + 1];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
 		MyPoint pt = mp[i];
 		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
 			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
@@ -376,6 +402,20 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	DeleteObject(hNullBrush);
 }
 
+void drawCoSDrawing(HDC hdc, DrawInfo* drawing) {
+	switch (drawing->type) {
+	case BCURVE:
+	{
+		if (drawing->multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
+			DrawBCurveHelp(hdc, points, BSPLINE, drawing->multipoint.numPoints, &drawing->proper);
+			delete[] points;
+		}
+		break;
+	}
+	}
+}
+
 void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	RECT rect;
 	GetClientRect(hCWnd, &rect);
@@ -396,6 +436,22 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 
 	// 加载正在绘制的图形，第二层
 	drawDrawing(hdc, &drawing);
+}
+
+void RedrawCoSContent(HWND hCWnd, HDC hdc) {
+	RECT rect;
+	GetClientRect(hCWnd, &rect);
+
+	// 重新填充为白色
+	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
+	FillRect(hdc, &rect, hBrush);
+
+	if (coordinate.radius == 0) {
+		POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
+		SetCoordinate(coordinate, center, DEFAULTRADIUS); // 设置坐标系参数
+	}
+
+	drawCoSDrawing(hdc, &drawing);
 }
 
 void EnableMouseTracking(HWND hWnd) {
@@ -480,6 +536,7 @@ void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
 }
 
 void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro) {
+	if (degree + 1 > n) return;
 	Graphics graphics(hdc);
 	Pen pen(Color(255, GetRValue(pro->color), GetGValue(pro->color), GetBValue(pro->color)), pro->width);
 
@@ -574,9 +631,56 @@ void DrawBCurve(HDC hdc, POINT* points, int degree, int n, const DrawUnitPropert
 		third.x = (points[i + 1].x * (r - 1) + mid.x) / r;
 		third.y = (points[i + 1].y * (r - 1) + mid.y) / r;
 
-		DrawPoint(hdc, mid.x, mid.y, 2, 0x00ff0000);
-		DrawPoint(hdc, third.x, third.y, 2, 0x00ff0000);
+		DrawPoint(hdc, mid.x, mid.y, 3, 0x000000ff);
+		DrawPoint(hdc, third.x, third.y, 3, 0x000000ff);
 	}
 
 	DrawBSplineC(hdc, points, degree, n, pro);
+}
+
+void DrawBCurveHelp(HDC hdc, POINT* points, int degree, int n, const DrawUnitProperty* pro) {
+	// 画虚线
+	for (int i = 0; i < n - 1; i++) {
+		DrawXLine(hdc, points[i], points[i + 1], 1);
+	}
+
+	// 画隔一个点的虚线
+	for (int i = 0; i < n - 2; i++) {
+		DrawXLine(hdc, points[i], points[i + 2], 1);
+	}
+
+	// 隔一个的线的中点与两个点之间的点相连
+	POINT mid;
+	POINT third;
+	int r = degree;
+	for (int i = 0; i < n - 2; i++) {
+		mid.x = (points[i].x + points[i + 2].x) / 2;
+		mid.y = (points[i].y + points[i + 2].y) / 2;
+		DrawXLine(hdc, mid, points[i + 1], 1);
+
+		// 将中点和其三分一处标红
+		third.x = (points[i + 1].x * (r - 1) + mid.x) / r;
+		third.y = (points[i + 1].y * (r - 1) + mid.y) / r;
+
+		DrawPoint(hdc, mid.x, mid.y, 3, 0x000000ff);
+		DrawPoint(hdc, third.x, third.y, 3, 0x000000ff);
+	}
+}
+
+void DrawABCurveHelp(HDC hdc, POINT start, POINT middle, POINT end, int degree) {
+	POINT seM, semM;
+	seM.x = (start.x + end.x) / 2;
+	seM.y = (start.y + end.y) / 2;
+	semM.x = (middle.x * (degree - 1) + seM.x) / degree;
+	semM.y = (middle.y * (degree - 1) + seM.y) / degree;
+
+	DrawXLine(hdc, middle, end, 1);
+	DrawXLine(hdc, start, end, 1);
+	DrawXLine(hdc, seM, middle, 1);
+	DrawPoint(hdc, seM.x, seM.y, 3, 0x000000ff);
+	DrawPoint(hdc, semM.x, semM.y, 3, 0x000000ff);
+}
+
+void DrawFBCurve(HDC hdc, POINT* points, int degree, const DrawUnitProperty* pro) {
+	DrawBSplineC(hdc, points, degree, degree + 1, pro);
 }

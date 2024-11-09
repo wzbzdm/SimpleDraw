@@ -74,7 +74,7 @@ bool DrawStateInit(const MyDrawState& mst) {
 }
 
 bool TwoPointDraw(const POINT& p1, const POINT& p2) {
-	return p1.x != p2.x || p1.y != p2.y;
+	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != -1 && p1.y != -1 && p2.x != -1 && p2.y != -1);
 }
 
 bool InDraw(const MyDrawState& mst) {

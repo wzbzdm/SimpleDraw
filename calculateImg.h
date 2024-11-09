@@ -340,6 +340,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
             break;
         }
         case CURVE:
+        case BCURVE:
         case FMULTILINE:
         case MULTILINE:
         {
