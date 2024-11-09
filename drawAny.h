@@ -12,6 +12,7 @@ void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color);
 void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color);
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width);
 void ScanlineFill(HDC hdc, POINT* polygon, int n, int color);
+void FenceFill(HDC hdc, POINT* points, int n, int color);
 
 int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	LOGBRUSH lb;
@@ -198,7 +199,23 @@ int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	return 0;
 }
 
+int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
+	switch (PADTYPE(type)) {
+	case PADSYSTEM:
+		break;
+	case PADSCAN:
+		ScanlineFill(hdc, point, length, color);
+		break;
+	case PADZL:
+		FenceFill(hdc, point, length, color);
+		break;
+	}
+
+	return 0;
+}
+
 int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+	PadColor(hdc, start, length, pro->bgcolor, pro->type);
 	for (int i = 0; i < length; i++) {
 		DrawLine(hdc, start[i], start[(i + 1) % length], pro);
 	}

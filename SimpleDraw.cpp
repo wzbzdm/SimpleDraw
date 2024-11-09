@@ -1491,6 +1491,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			p2 = mapCoordinate(coordinate, drawing.multipoint.points[last].x, drawing.multipoint.points[last].y);
 			DrawLine(hdcMemFixed, p1, p2, &customProperty);
 
+			POINT* pts = mapMyPoints(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum);
+			DrawFMultiLine(hdcMemFixed, pts, drawing.multipoint.numPoints, &customProperty);
+			delete[] pts;
+
 			DrawInfo mline;
 			mline.type = FMULTILINE;
 			mline.proper = drawing.proper;
@@ -1689,6 +1693,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				MyPoint firstM = drawing.multipoint.points[0];
 				POINT first = mapCoordinate(coordinate, firstM.x, firstM.y);
 
+				// 填充
+				if (drawing.multipoint.numPoints >= 2) {
+					POINT* pts = mapPointsAddOne(drawing.multipoint.points, drawing.multipoint.numPoints, drawing.multipoint.endNum, point);
+					PadColor(hdcMemPreview, pts, drawing.multipoint.numPoints + 1, customProperty.bgcolor, customProperty.type);
+					delete[]pts;
+				}
+				
 				// 画虚线
 				if (drawing.multipoint.numPoints > 1) {
 					DrawXLine(hdcMemPreview, point, first, &customProperty);

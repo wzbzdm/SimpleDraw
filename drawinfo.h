@@ -104,7 +104,7 @@ extern "C" {
 // 绘图方式为系统API
 #define DEFAULTLINEWID		2				// 线宽为2
 #define DEFAULTLINECOR		0				// 黑色
-#define DEFAULTPADCOR		0x00ffffff		// 白色
+#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
 #define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
 
 	// 图元类型
