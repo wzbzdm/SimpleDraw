@@ -342,7 +342,9 @@ extern "C" {
 			break;
 		}
 		case CURVE:
+		case BCURVE:
 		case MULTILINE:
+		case FMULTILINE:
 		{
 			for (int i = 0; i < draw->multipoint.endNum; i++) {
 				if (draw->multipoint.points[i].x == DBL_MAX || draw->multipoint.points[i].y == DBL_MAX) continue;
@@ -359,7 +361,9 @@ extern "C" {
 	void ClearDrawingImg(DrawInfo* drawing) {
 		switch (drawing->type) {
 		case CURVE:
+		case BCURVE:
 		case MULTILINE:
+		case FMULTILINE:
 		{
 			if (drawing->multipoint.points) {
 				ClearMultipoint(&(drawing->multipoint));
@@ -509,7 +513,9 @@ extern "C" {
 			size += sizeof(MyRectangle);
 			break;
 		case CURVE:
+		case BCURVE:
 		case MULTILINE:
+		case FMULTILINE:
 			ScanMultipoint(&di->multipoint);
 			size += GetMultipointSize(&(di->multipoint));
 			break;
@@ -552,7 +558,9 @@ extern "C" {
 			break;
 
 		case CURVE:
+		case BCURVE:
 		case MULTILINE:
+		case FMULTILINE:
 			IntToByte(draw.multipoint.numPoints, &buffer, byteSize); // Add number of points
 			IntToByte(draw.multipoint.endNum, &buffer, byteSize); // Add endNum
 			IntToByte(draw.multipoint.maxNum, &buffer, byteSize); // Add maxNum
@@ -590,7 +598,9 @@ extern "C" {
 			break;
 
 		case CURVE:
+		case BCURVE:
 		case MULTILINE:
+		case FMULTILINE:
 			draw.multipoint.numPoints = byteToInt(buffer, index);
 			draw.multipoint.endNum = byteToInt(buffer, index);
 			draw.multipoint.maxNum = byteToInt(buffer, index);

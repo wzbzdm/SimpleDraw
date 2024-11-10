@@ -54,6 +54,7 @@ POINT getClientPos(HWND hWnd) {
 #define COORDIWIDTH		1		// 坐标及其他线宽
 #define COORDIKWIDTH	2		// 刻度宽度
 
+// TODO: 改进坐标线绘制
 void drawCoordinate(HDC hdc, POINT center, int width, int height) {
 	// 画坐标系
 	HPEN hPen = CreatePen(PS_SOLID, COORDIWIDTH, COORDILINE); // 黑色画笔
@@ -384,6 +385,7 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	{
 		POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
 		DrawFMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
+		delete[] points;
 		break;
 	}
 	case BCURVE:
@@ -402,6 +404,7 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	DeleteObject(hNullBrush);
 }
 
+// 图形计算或者辅助线显示
 void drawCoSDrawing(HDC hdc, DrawInfo* drawing) {
 	switch (drawing->type) {
 	case BCURVE:
@@ -416,6 +419,7 @@ void drawCoSDrawing(HDC hdc, DrawInfo* drawing) {
 	}
 }
 
+// 固定画布重绘
 void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	RECT rect;
 	GetClientRect(hCWnd, &rect);
@@ -438,6 +442,7 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	drawDrawing(hdc, &drawing);
 }
 
+// 中间窗口重绘
 void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 	RECT rect;
 	GetClientRect(hCWnd, &rect);
@@ -445,11 +450,6 @@ void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 	// 重新填充为白色
 	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
 	FillRect(hdc, &rect, hBrush);
-
-	if (coordinate.radius == 0) {
-		POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
-		SetCoordinate(coordinate, center, DEFAULTRADIUS); // 设置坐标系参数
-	}
 
 	drawCoSDrawing(hdc, &drawing);
 }

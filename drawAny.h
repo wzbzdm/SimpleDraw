@@ -138,7 +138,6 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 		}
 		else {
 			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
-			//Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 		}
 	}
 	break;
@@ -149,7 +148,6 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 		}
 		else {
 			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
-			//Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 		}
 	}
 	break;
@@ -184,7 +182,6 @@ int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
 		}
 		else {
 			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
-			//Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 		}
 	}
 	break;
@@ -195,7 +192,6 @@ int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
 		}
 		else {
 			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
-			//Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
 		}
 	}
 	break;
@@ -247,10 +243,6 @@ int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty
 	return 0;
 }
 
-int DrawCurve(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
-	return 0;
-}
-
 int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	for (int i = 0; i < length - 1; i++) {
 		DrawLine(hdc, start[i], start[i + 1], pro);
@@ -258,6 +250,7 @@ int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	return 0;
 }
 
+// TODO: 系统颜色填充
 int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 	switch (PADTYPE(type)) {
 	case PADSYSTEM:
@@ -274,6 +267,7 @@ int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 }
 
 int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+	// 先填充颜色
 	PadColor(hdc, start, length, pro->bgcolor, pro->type);
 	for (int i = 0; i < length; i++) {
 		DrawLine(hdc, start[i], start[(i + 1) % length], pro);
