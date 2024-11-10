@@ -7,6 +7,9 @@
 
 #define MAX_LOADSTRING 100
 
+#define COLORSLIDE	1
+#define BGSLIDE		2
+
 // 定时器
 #define REDRAW				1
 #define HZ					200
@@ -895,10 +898,6 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 		EnableWindow(Edit2, FALSE);
 		EnableWindow(Button, FALSE);
 
-		//// 创建类型选择下拉框
-		//TypeCombo = CreateWindow(L"TypeComboxClass", NULL, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
-		//	25, 140, 150, 60, hSWnd, (HMENU)2, hInst, NULL);
-
 		// 创建线宽滑块
 		WidthSlider = CreateWindow(L"CustomSliderClass", NULL, WS_CHILD | WS_VISIBLE,
 			25, 140, 150, 60, hSWnd, (HMENU)3, hInst, NULL);
@@ -910,13 +909,13 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			25, 220, 150, 65, hSWnd, (HMENU)4, hInst, NULL);
 
 		SendMessage(ColorSlider, CUSTOM_TITLE_CHANGE, NULL, (LPARAM)L"颜色:");
-		SendMessage(ColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)1);
+		SendMessage(ColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)COLORSLIDE);
 
 		bgColorSlider = CreateWindow(L"ColorPickerClass", NULL, WS_CHILD | WS_VISIBLE,
 			25, 300, 150, 65, hSWnd, (HMENU)5, hInst, NULL);
 
 		SendMessage(bgColorSlider, CUSTOM_TITLE_CHANGE, NULL, (LPARAM)L"背景:");
-		SendMessage(bgColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)2);
+		SendMessage(bgColorSlider, CUSTOM_SET_NUM, NULL, (LPARAM)BGSLIDE);
 		SendMessage(bgColorSlider, CUSTOM_SET_COLOR, (WPARAM)2, (LPARAM)DEFAULTPADCOR);
 
 		DWORD dwError = GetLastError();
@@ -926,10 +925,10 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	case CUSTOM_COLOR_CHANGE:
 	{
 		switch ((INT)lParam) {
-		case 1:
+		case COLORSLIDE:
 			SetColorWithColorRef(&customProperty, (COLORREF)wParam);
 			break;
-		case 2:
+		case BGSLIDE:
 			SetBgColorWithColorRef(&customProperty, (COLORREF)wParam);
 			break;
 		}
@@ -1081,6 +1080,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		Cleanup();
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
+		ClearPreviewContent(hdcMemCoS);
+		RedrawCoSContent(hCWnd, hdcMemCoS);
 		NeedRedraw();
 		break;
 	}

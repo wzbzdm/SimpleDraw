@@ -141,7 +141,9 @@ void setType(MyDrawState& mst, DrawType type) {
 	case DRAWCIRCLE:
 	case DRAWRECTANGLE:
 	case DRAWMULTILINE:
+	case DRAWFMULTI:
 	case DRAWCURVE:
+	case DRAWBCURVE:
 		mst.lastLButtonPoint = { -1, -1 };
 		break;
 	default:
@@ -168,7 +170,6 @@ void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrec
 	case 1:
 	{
 		padding = 60;
-		
 	}
 	break;
 	case 2:

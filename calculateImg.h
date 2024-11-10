@@ -221,7 +221,9 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
         break;
     }
     case CURVE:
+    case BCURVE:
     case MULTILINE:
+    case FMULTILINE:
     {
         d = GetMinDPointToMultipoint(mp, &(choose.multipoint));
         break;
@@ -276,7 +278,9 @@ int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
             break;
         }
         case CURVE:
+        case BCURVE:
         case MULTILINE:
+        case FMULTILINE:
         {
             double d = GetMinDPointToMultipoint(mp, &(item.multipoint));
             if (minDistance > d) {

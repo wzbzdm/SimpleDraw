@@ -10,7 +10,10 @@ using namespace std;
 
 void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color);
 void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color);
+void MidpointCircle(HDC hdc, int xc, int yc, int r, int color);
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, int color);
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width);
+void FillCircle(HDC hdc, int xc, int yc, int r, int color, int width);
 void ScanlineFill(HDC hdc, POINT* polygon, int n, int color);
 void FenceFill(HDC hdc, POINT* points, int n, int color);
 
@@ -122,7 +125,33 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	SelectObject(hdc, hNullBrush);
 
 	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
-	Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
+	switch (DRAWTYPE(pro->type)) {
+	case DRAWSYSTEM:
+	{
+		Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
+	}
+	break;
+	case DRAWBRE:
+	{
+		if (pro->width == 1) {
+			BresenhamCircle(hdc, center.x, center.y, r, pro->color);
+		}
+		else {
+			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		}
+	}
+	break;
+	case DRAWMID:
+	{
+		if (pro->width == 1) {
+			MidpointCircle(hdc, center.x, center.y, r, pro->color);
+		}
+		else {
+			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		}
+	}
+	break;
+	}
 
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
@@ -140,7 +169,33 @@ int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
+	switch (DRAWTYPE(pro->type)) {
+	case DRAWSYSTEM:
+	{
+		Ellipse(hdc, center.x - r, center.y - r, center.x + r, center.y + r);
+	}
+	break;
+	case DRAWBRE:
+	{
+		if (pro->width == 1) {
+			BresenhamCircle(hdc, center.x, center.y, r, pro->color);
+		}
+		else {
+			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		}
+	}
+	break;
+	case DRAWMID:
+	{
+		if (pro->width == 1) {
+			MidpointCircle(hdc, center.x, center.y, r, pro->color);
+		}
+		else {
+			FillCircle(hdc, center.x, center.y, r, pro->color, pro->width);
+		}
+	}
+	break;
+	}
 
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
@@ -188,10 +243,6 @@ int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty
 	return 0;
 }
 
-int DrawCurve(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
-	return 0;
-}
-
 int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	for (int i = 0; i < length - 1; i++) {
 		DrawLine(hdc, start[i], start[i + 1], pro);
@@ -199,6 +250,7 @@ int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	return 0;
 }
 
+// TODO: 系统颜色填充
 int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 	switch (PADTYPE(type)) {
 	case PADSYSTEM:
@@ -215,6 +267,7 @@ int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 }
 
 int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+	// 先填充颜色
 	PadColor(hdc, start, length, pro->bgcolor, pro->type);
 	for (int i = 0; i < length; i++) {
 		DrawLine(hdc, start[i], start[(i + 1) % length], pro);
@@ -327,6 +380,128 @@ void BresenhamLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
 			p += 2 * dx;
 		}
 		SetPixel(hdc, x1, y1, color); // 绘制终点
+	}
+}
+
+
+void MidpointCircle(HDC hdc, int xc, int yc, int r, int color) {
+	int x = 0;
+	int y = r;
+	int d = 1 - r;
+
+	auto drawThickCirclePoints = [&](int x, int y) {
+		SetPixel(hdc, xc + x, yc + y, color);
+		SetPixel(hdc, xc - x, yc + y, color);
+		SetPixel(hdc, xc + x, yc - y, color);
+		SetPixel(hdc, xc - x, yc - y, color);
+		SetPixel(hdc, xc + y, yc + x, color);
+		SetPixel(hdc, xc - y, yc + x, color);
+		SetPixel(hdc, xc + y, yc - x, color);
+		SetPixel(hdc, xc - y, yc - x, color);
+		};
+
+	drawThickCirclePoints(x, y);
+
+	while (x < y) {
+		if (d < 0) {
+			d += 2 * x + 3;
+		}
+		else {
+			d += 2 * (x - y) + 5;
+			y--;
+		}
+		x++;
+		drawThickCirclePoints(x, y);
+	}
+}
+
+vector<POINT> MidpointCircle(int xc, int yc, int r) {
+	vector<POINT> points;
+	int x = 0;
+	int y = r;
+	int d = 1 - r;
+
+	auto pushCirclePoints = [&](int x, int y) {
+			points.push_back({ xc + x, yc + y });
+			points.push_back({ xc - x, yc + y });
+			points.push_back({ xc + x, yc - y });
+			points.push_back({ xc - x, yc - y });
+			points.push_back({ xc + y, yc + x });
+			points.push_back({ xc - y, yc + x });
+			points.push_back({ xc + y, yc - x });
+			points.push_back({ xc - y, yc - x });
+		};
+
+	pushCirclePoints(x, y);
+
+	while (x < y) {
+		if (d < 0) {
+			d += 2 * x + 3;
+		}
+		else {
+			d += 2 * (x - y) + 5;
+			y--;
+		}
+		x++;
+		pushCirclePoints(x, y);
+	}
+
+	return points;
+}
+
+void FillCircle(HDC hdc, int xc, int yc, int r, int color, int width) {
+	// 外圆和内圆的半径
+	int r_outer = r + ((width + 1) / 2);
+	int r_inner = r - (width / 2);
+
+	// 使用扫描线填充法绘制圆环区域
+	for (int y = 0; y < r_outer; y++) {
+		// 计算外圆和内圆在当前 y 位置上的 x 范围
+		int x_outer = (int)sqrt(r_outer * r_outer - y * y);
+		int x_inner = (r_inner > y) ? (int)sqrt(r_inner * r_inner - y * y) : 0;
+
+		// 填充 [x_inner, x_outer] 之间的像素
+		for (int x = x_inner; x < x_outer; x++) {
+			// 绘制左右两侧的像素点
+			SetPixel(hdc, xc + x, yc + y, color);
+			SetPixel(hdc, xc - x, yc + y, color);
+
+			// 下方左右两次像素
+			if (y != 0) {
+				SetPixel(hdc, xc + x, yc - y, color);
+				SetPixel(hdc, xc - x, yc - y, color);
+			}
+		}
+	}
+}
+
+void BresenhamCircle(HDC hdc, int xc, int yc, int r, int color) {
+	int x = 0, y = r;
+	int d = 3 - 2 * r;
+
+	auto drawThickCirclePoints = [&](int x, int y) {
+		SetPixel(hdc, xc + x, yc + y, color);
+		SetPixel(hdc, xc - x, yc + y, color);
+		SetPixel(hdc, xc + x, yc - y, color);
+		SetPixel(hdc, xc - x, yc - y, color);
+		SetPixel(hdc, xc + y, yc + x, color);
+		SetPixel(hdc, xc - y, yc + x, color);
+		SetPixel(hdc, xc + y, yc - x, color);
+		SetPixel(hdc, xc - y, yc - x, color);
+		};
+	
+	drawThickCirclePoints(x, y);
+
+	while (x <= y) {
+		x++;
+		if (d > 0) {
+			y--;
+			d = d + 4 * (x - y) + 10;
+		}
+		else {
+			d = d + 4 * x + 6;
+		}
+		drawThickCirclePoints(x, y);
 	}
 }
 
