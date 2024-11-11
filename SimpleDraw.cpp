@@ -75,7 +75,7 @@ void				FitCanvasCoordinate(Coordinate& coor, StoreImg& img, HWND hcwnd);
 void				InitializeBuffers(HWND hWnd);
 void				Cleanup();
 void				RedrawFixedContent(HWND hCWnd, HDC hdc);
-void				ClearPreviewContent(HDC hdc);
+void				ClearContent(HDC hdc);
 void				EnableMouseTracking(HWND hWnd);
 void 				LoadMyCustomCuser();
 void				ShowAllCalPoint(HDC hdc);
@@ -635,8 +635,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			setType(mst, mst.type);
 			ClearDrawingImg(&drawing); // 清空当前绘制的图形
 			ClearStoreImg(&allImg); // 清空图形
-			ClearPreviewContent(hdcMemPreview); // 清空预览画布
-			ClearPreviewContent(hdcMemCoS);		// 清空计算或选中画布
+			ClearContent(hdcMemPreview); // 清空预览画布
+			ClearContent(hdcMemCoS);		// 清空计算或选中画布
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			NeedRedraw();
 			break;
@@ -698,8 +698,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			break;
 		case FITSCREEN:
-			ClearPreviewContent(hdcMemPreview);
-			ClearPreviewContent(hdcMemCoS);
+			ClearContent(hdcMemPreview);
+			ClearContent(hdcMemCoS);
 			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			RedrawCoSContent(hCanvasWnd, hdcMemCoS);
@@ -999,7 +999,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 }
 
 // 清空预览画布
-void ClearPreviewContent(HDC hdc) {
+void ClearContent(HDC hdc) {
 	RECT rect;
 	GetClientRect(hCanvasWnd, &rect);
 	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
@@ -1083,7 +1083,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		Cleanup();
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
-		ClearPreviewContent(hdcMemCoS);
+		ClearContent(hdcMemCoS);
 		RedrawCoSContent(hCWnd, hdcMemCoS);
 		NeedRedraw();
 		break;
@@ -1284,7 +1284,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			case DRAWCX:
 			{
 				// 保存线段
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				if (cs.count == -1) break;
 				DrawInfo choose = allImg.img[cs.count];
 				if (choose.type != LINE) break;
@@ -1323,13 +1323,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case CHOOSEIMG:
 		{
 			// 没有选中
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
 		case CHOOSEN:
 		{
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			if (cs.count == -1) {
 				break;
 			}
@@ -1362,7 +1362,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 如果当前的点与上次的点位置相同，则为两点画线
 			if (!DrawStateInit(mst) && TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				// 在固定图像上绘制线
 				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画线
@@ -1381,7 +1381,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 画圆
 			if (!DrawStateInit(mst) && TwoPointDraw(mst.lastLButtonPoint, point)) {
 				// 画圆
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				DrawCircle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画圆,第一个点为圆心，第二个点为半径
 				MyPoint start, end;
@@ -1399,7 +1399,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 画矩形
 			if (!DrawStateInit(mst) && TwoPointDraw(mst.lastLButtonPoint, point)) {
 				// 画矩形
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				DrawRectangle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				MyPoint start, end;
 				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
@@ -1449,7 +1449,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			else {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 			}
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
@@ -1459,7 +1459,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 保存绘图信息
 			if (DrawStateInit(mst) || !drawing.multipoint.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				NeedRedraw();
 				break;
 			}
@@ -1471,7 +1471,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultipoint(&(drawing.multipoint));
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
@@ -1481,7 +1481,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 保存绘图信息
 			if (DrawStateInit(mst) || !drawing.multipoint.points) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				NeedRedraw();
 				break;
 			}
@@ -1504,7 +1504,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultipoint(&(drawing.multipoint));
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
@@ -1517,8 +1517,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (drawing.multipoint.numPoints <= BSPLINE) {
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				ClearMultipoint(&(drawing.multipoint));
-				ClearPreviewContent(hdcMemPreview);
-				ClearPreviewContent(hdcMemCoS);
+				ClearContent(hdcMemPreview);
+				ClearContent(hdcMemCoS);
 				NeedRedraw();
 				break;
 			}
@@ -1531,8 +1531,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultipoint(&(drawing.multipoint));
-			ClearPreviewContent(hdcMemPreview);
-			ClearPreviewContent(hdcMemCoS);
+			ClearContent(hdcMemPreview);
+			ClearContent(hdcMemCoS);
 			NeedRedraw();
 			break;
 		}
@@ -1572,7 +1572,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 清空状态
 			mst.lastLButtonPoint = { -1, -1 };
 			ClearMultipoint(&(drawing.multipoint));
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
@@ -1580,7 +1580,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 清除状态
 			RestoreFormLastType(mst);
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
 		}
@@ -1605,7 +1605,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			case DRAWCX:
 			{
 				EndKZType(mst);
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				NeedRedraw();
 				break;
 			}
@@ -1650,7 +1650,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		}
 		case MMOUSEMOVE:
 		{
-			ClearPreviewContent(hdcMemPreview);
+			ClearContent(hdcMemPreview);
 			// 获得移动距离
 			int x = point.x - mst.lastMMousemovePoint.x;
 			int y = point.y - mst.lastMMousemovePoint.y;
@@ -1667,7 +1667,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWLINE:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
 				NeedRedraw();
@@ -1678,7 +1678,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWMULTILINE:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				// 画线
 				DrawLine(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
@@ -1690,7 +1690,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWFMULTI:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				MyPoint firstM = drawing.multipoint.points[0];
 				POINT first = mapCoordinate(coordinate, firstM.x, firstM.y);
 
@@ -1715,7 +1715,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWBCURVE:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				if (drawing.multipoint.numPoints == 1) {
 					DrawXLine(hdcMemPreview, mst.lastLButtonPoint, point, 1);
 					NeedRedraw();
@@ -1748,7 +1748,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWCIRCLE:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				// 画圆
 				DrawCircle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
@@ -1760,7 +1760,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWRECTANGLE:
 		{
 			if (TwoPointDraw(mst.lastLButtonPoint, point)) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				// 画矩形
 				DrawRectangle(hdcMemPreview, mst.lastLButtonPoint, point, &customProperty);
 				// 触发重绘
@@ -1781,7 +1781,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 			}
 			if (count == drawing.multipoint.numPoints) {
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				gdiplusPoints[count] = Gdiplus::Point(point.x, point.y);
 				// 画曲线
 				Graphics graphics(hdcMemPreview);
@@ -1802,7 +1802,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			switch (mst.kztype) {
 			case DRAWCX:
 			{
-				ClearPreviewContent(hdcMemPreview);
+				ClearContent(hdcMemPreview);
 				// 预览垂线,为选中的线段的垂线
 				if (cs.count == -1) break;
 				DrawInfo choose = allImg.img[cs.count];
@@ -1839,7 +1839,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		POINT point = getClientPos(hCWnd);
 		setTypeWithLastType(mst, MMOUSEMOVE);
 		mst.lastMMousemovePoint = point;
-		ClearPreviewContent(hdcMemPreview);
+		ClearContent(hdcMemPreview);
 		break;
 	}
 	case WM_MBUTTONUP:
@@ -1877,9 +1877,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		UpdateStatusBarRadius(coordinate.radius);
 
 		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
-		ClearPreviewContent(hdcMemCoS);
+		ClearContent(hdcMemCoS);
 		RedrawCoSContent(hCWnd, hdcMemCoS);
-		ClearPreviewContent(hdcMemPreview);
+		ClearContent(hdcMemPreview);
 
 		// 触发鼠标移动事件
 		LPARAM l = MAKELPARAM(point.x, point.y);

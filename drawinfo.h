@@ -230,6 +230,14 @@ extern "C" {
 		return dis;
 	}
 
+	double GetMinDPointToFMultipoint(MyPoint p, MyMultiPoint* multipoint) {
+		double dis = GetMinDPointToMultipoint(p, multipoint);
+		MyLine end = { multipoint->points[0], multipoint->points[multipoint->numPoints - 1] };
+		dis = min(dis, DistanceToLine(p, end));
+
+		return dis;
+	}
+
 	void InitFromMultipoint(MyMultiPoint* multipoint, MyMultiPoint* another) {
 		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
 		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));

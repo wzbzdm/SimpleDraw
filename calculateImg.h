@@ -223,9 +223,13 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     case CURVE:
     case BCURVE:
     case MULTILINE:
-    case FMULTILINE:
     {
         d = GetMinDPointToMultipoint(mp, &(choose.multipoint));
+        break;
+    }
+    case FMULTILINE:
+    {
+        d = GetMinDPointToFMultipoint(mp, &(choose.multipoint));
         break;
     }
     default:
@@ -249,48 +253,42 @@ int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
     PointToCoordinate(coor, p, mp.x, mp.y);
     for (int i = 0; i < store.endNum; i++) {
         DrawInfo item = store.img[i];
+        double d;
         switch (item.type) {
         case LINE:
         {
-            double d = DistanceToLine(mp, item.line);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
+            d = DistanceToLine(mp, item.line);
             break;
         }
         case CIRCLE:
         {
-            double d = GetDPointToCircle(mp, item.circle);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
+            d = GetDPointToCircle(mp, item.circle);
             break;
         }
         case RECTANGLE:
         {
-            double d = GetMinDPointToRectangle(mp, item.rectangle);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
+            d = GetMinDPointToRectangle(mp, item.rectangle);
             break;
         }
         case CURVE:
         case BCURVE:
         case MULTILINE:
+        {
+            d = GetMinDPointToMultipoint(mp, &(item.multipoint));
+            break;
+        }
         case FMULTILINE:
         {
-            double d = GetMinDPointToMultipoint(mp, &(item.multipoint));
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
+            d = GetMinDPointToFMultipoint(mp, &(item.multipoint));
             break;
         }
         default:
             break;
+        }
+
+        if (minDistance > d) {
+            minDistance = d;
+            count = i;
         }
     }
 
