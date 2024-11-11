@@ -2,6 +2,7 @@
 #include "framework.h"
 #include "SimpleDraw.h"
 #include "drawinfo.h"
+#include "showRMenu.h"
 #include "calculateImg.h"
 #include "customSlider.h"
 

@@ -3,6 +3,7 @@
 #include "drawinfo.h"
 #include <iostream>
 #include <vector>
+
 #define MAXWTOCHHOSE 10
 #define MAXWCONTINUECHOOSE 25
 
