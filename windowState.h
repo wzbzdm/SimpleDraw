@@ -2,6 +2,7 @@
 #define WINDOWSIZE_H
 
 #include <Windows.h>
+#include <stack>
 
 // 画布宽度和其他宽度
 #define OTHERW 200
@@ -58,15 +59,23 @@ typedef enum KZDrawType {
 	DRAWCX,				// 画垂线
 } KZDrawType;
 
-typedef struct MyDrawState {
+typedef struct MyDrawState MyDrawState;
+
+typedef void typeGo(MyDrawState& ms, DrawType type);
+typedef void typeBack(MyDrawState& ms);
+
+struct MyDrawState {
 	DrawType type;
 	DrawType lastType;
+	std::stack<DrawType> preType;
+	typeGo* go;
+	typeBack* back;
 	KZDrawType kztype;
 	union {
 		POINT lastMMousemovePoint;
 		POINT lastLButtonPoint;
 	};
-} MyDrawState;
+};
 
 // 合理绘图状态
 bool DrawStateInit(const MyDrawState& mst) {
@@ -112,21 +121,25 @@ bool CanRefresh(MyDrawState& mst) {
 	
 }
 
-void InitMyDrawState(MyDrawState& mst) {
-	mst.type = CHOOSEIMG;
-	mst.lastType = CHOOSEIMG;
-	mst.lastLButtonPoint = { -1, -1 };
-	mst.lastMMousemovePoint = { -1, -1 };
-}
-
-void setTypeWithLastType(MyDrawState& mst, DrawType type){
+void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 	mst.lastType = mst.type;
 	mst.type = type;
+	mst.preType.push(type);
 }
 
 void RestoreFormLastType(MyDrawState& mst) {
 	mst.lastLButtonPoint = { -1, -1 };
 	mst.type = mst.lastType;
+	mst.preType.pop();
+}
+
+void InitMyDrawState(MyDrawState& mst) {
+	mst.type = CHOOSEIMG;
+	mst.lastType = CHOOSEIMG;
+	mst.lastLButtonPoint = { -1, -1 };
+	mst.lastMMousemovePoint = { -1, -1 };
+	mst.go = setTypeWithLastType;   // 初始化函数指针
+	mst.back = RestoreFormLastType; // 初始化函数指针
 }
 
 DrawType getType(MyDrawState& mst) {
@@ -160,9 +173,6 @@ void setKZType(MyDrawState& mst, KZDrawType type) {
 void EndKZType(MyDrawState& mst) {
 	mst.type = CHOOSEIMG;
 }
-
-// 静态数据
-WindowState wstate = { 800, 650, 45 };
 
 void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrect, const int mode) {
 	int padding;
@@ -321,4 +331,15 @@ void SetActiveID(ChooseState &cs, int id) {
 	cs.choose = id;
 }
 
+
+// TODO: 工作区?
+// 静态数据
+WindowState wstate = { 800, 650, 45 };
+MyDrawState mst = { CHOOSEIMG, CHOOSEIMG };		// 默认状态
+Coordinate coordinate;							// 坐标系
+StoreImg allImg;								// 存储所有的图形
+DrawInfo drawing;								// 当前正在绘制的图形
+DrawUnitProperty customProperty;				// 自定义绘图
+WindowRect wrect;								// 各个组件的位置
+ChooseState cs;									// 
 #endif // WINDOWSIZE_H

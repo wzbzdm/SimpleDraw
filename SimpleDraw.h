@@ -29,12 +29,6 @@ void ShutdownGDIPlus() {
 #define STATUSBARCOLOR RGB(75, 75, 75)
 #define SIDEBARCOLOR RGB(215, 220, 220)
 
-MyDrawState mst = { CHOOSEIMG, CHOOSEIMG }; // 默认状态
-
-Coordinate coordinate; // 坐标系
-StoreImg allImg; // 存储所有的图形
-DrawInfo drawing; // 当前正在绘制的图形
-
 POINT getClientPos(LPARAM lParam) {
 	POINT point;
 	point.x = LOWORD(lParam);
@@ -80,7 +74,7 @@ void drawCoordinate(HDC hdc, POINT center, int width, int height) {
 
 	double radius = coordinate.radius;		// 单位/像素
 
-	int g = MINXPERZ * radius;
+	int g = (int)(MINXPERZ * radius);
 
 	g = (div(g, 2).quot + 1) * 2;
 	// 转换为像素间隔
@@ -247,7 +241,7 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 			double radius = item->circle.radius;
 			// 将坐标转换为屏幕坐标
 			POINT pt = mapCoordinate(coordinate, center.x, center.y);
-			double r = (radius / coordinate.radius);
+			int r = (int)(radius / coordinate.radius);
 
 			DrawCircle(hdc, pt, r, &item->proper);
 			break;

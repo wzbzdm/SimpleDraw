@@ -403,3 +403,23 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 当前应该在中点
     pt = mapCoordinate(coor, centerX, centerY);
 }
+
+void ShowAllCalPoint(HDC hdc, Coordinate coor) {
+    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+    HBRUSH hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
+    SelectObject(hdc, hPen);
+    SelectObject(hdc, hBlackBrush);
+    // 在预览窗口显示所有计算点
+    for (int i = 0; i < CalculatePoints.size(); i++) {
+        MyPoint mp = CalculatePoints[i];
+        POINT pt = mapCoordinate(coor, mp.x, mp.y);
+        // 画圆心
+        SelectObject(hdc, hPen);
+        SelectObject(hdc, hBlackBrush);
+        Ellipse(hdc, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
+        // 显示坐标
+        ShowPointInWindow(hdc, mp);
+    }
+    DeleteObject(hPen);
+    DeleteObject(hBlackBrush);
+}

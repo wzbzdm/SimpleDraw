@@ -1,7 +1,6 @@
 ﻿#include "pch.h"
 #include "framework.h"
 #include "SimpleDraw.h"
-#include "drawinfo.h"
 #include "showRMenu.h"
 #include "calculateImg.h"
 #include "customSlider.h"
@@ -54,10 +53,6 @@ HCURSOR customCursor;		// 全局变量保存自定义光标句柄
 HCURSOR chooseCursor;		// 选择光标,十字光标表示可以
 HCURSOR moveCursor;			// 移动光标,四向箭头表示可以移动
 
-DrawUnitProperty customProperty;	// 自定义绘图
-WindowRect wrect;
-ChooseState cs;
-
 // 此代码模块中包含的函数的前向声明:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -72,16 +67,15 @@ LRESULT CALLBACK    CanvasWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    StatusWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
-void				FitCanvasCoordinate(Coordinate& coor, StoreImg& img, HWND hcwnd);
-void				InitializeBuffers(HWND hWnd);
-void				Cleanup();
-void				RedrawFixedContent(HWND hCWnd, HDC hdc);
-void				ClearContent(HDC hdc);
-void				EnableMouseTracking(HWND hWnd);
-void 				LoadMyCustomCuser();
-void				ShowAllCalPoint(HDC hdc);
-void				CalAndShowPoint();
 POINT				GetEditPoint(HWND edit1, HWND edit2);
+void				RedrawFixedContent(HWND hCWnd, HDC hdc);
+void				EnableMouseTracking(HWND hWnd);
+void				InitializeBuffers(HWND hWnd);
+void				ClearContent(HDC hdc);
+void				FitCanvasCoordinate();
+void 				LoadMyCustomCuser();
+void				CalAndShowPoint();
+void				Cleanup();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -612,7 +606,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				FileOpenAndSave s = FileToStoreImg(&allImg, ofn.lpstrFile); // 加载文件
 				switch (s) {
 				case OPENOK:
-					FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
+					FitCanvasCoordinate(); // 适应坐标系
 					RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 					NeedRedraw();
 					break;
@@ -701,7 +695,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case FITSCREEN:
 			ClearContent(hdcMemPreview);
 			ClearContent(hdcMemCoS);
-			FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
+			FitCanvasCoordinate(); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 			NeedRedraw();
@@ -798,7 +792,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		// 将GTX文件加载到画布中
 		FileToStoreImg(&allImg, filePath);
-		FitCanvasCoordinate(coordinate, allImg, hCanvasWnd); // 适应坐标系
+		FitCanvasCoordinate(); // 适应坐标系
 		RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 		NeedRedraw();
 		// 释放内存
@@ -1087,6 +1081,22 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		ClearContent(hdcMemCoS);
 		RedrawCoSContent(hCWnd, hdcMemCoS);
 		NeedRedraw();
+		break;
+	}
+	case WM_COMMAND:
+	{
+		HMENU hMenu = GetMenu(hCWnd);
+		MENUITEMINFO itemInfo;
+		ZeroMemory(&itemInfo, sizeof(MENUITEMINFO));
+		itemInfo.cbSize = sizeof(MENUITEMINFO);
+		itemInfo.fMask = MIIM_DATA;
+		if (GetMenuItemInfo(hMenu, LOWORD(wParam), FALSE, &itemInfo)) {
+			// 获取附加的数据，即处理函数指针
+			MenuItemHandler handler = (MenuItemHandler)itemInfo.dwItemData;
+			if (handler) {
+				handler(hCWnd);
+			}
+		}
 		break;
 	}
 	case WM_PAINT:
@@ -1927,10 +1937,10 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	return (INT_PTR)FALSE;
 }
 
-void FitCanvasCoordinate(Coordinate& coor, StoreImg& img, HWND hcwnd) {
+void FitCanvasCoordinate() {
 	// 获得画布窗口大小
 	RECT canvasRect;
-	GetClientRect(hcwnd, &canvasRect);
+	GetClientRect(hCanvasWnd, &canvasRect);
 	FitCoordinate(coordinate, allImg, canvasRect);
 }
 
@@ -1978,31 +1988,11 @@ void Cleanup() {
 	DeleteDC(hdcMemCoS);
 }
 
-void ShowAllCalPoint(HDC hdc) {
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-	HBRUSH hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
-	SelectObject(hdc, hPen);
-	SelectObject(hdc, hBlackBrush);
-	// 在预览窗口显示所有计算点
-	for (int i = 0; i < CalculatePoints.size(); i++) {
-		MyPoint mp = CalculatePoints[i];
-		POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
-		// 画圆心
-		SelectObject(hdc, hPen);
-		SelectObject(hdc, hBlackBrush);
-		Ellipse(hdc, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
-		// 显示坐标
-		ShowPointInWindow(hdc, mp);
-	}
-	DeleteObject(hPen);
-	DeleteObject(hBlackBrush);
-}
-
 void CalAndShowPoint() {
 	// 计算交点
 	CalculateImg(allImg, cs.count);
 	// 显示交点
-	ShowAllCalPoint(hdcMemPreview);
+	ShowAllCalPoint(hdcMemPreview, coordinate);
 	return;
 }
 

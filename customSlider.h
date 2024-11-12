@@ -161,7 +161,7 @@ LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 	{
 		if (lParam == (LPARAM)slider->hTrackbar) {
 			// 获取滑块当前位置
-			int pos = SendMessage(slider->hTrackbar, TBM_GETPOS, 0, 0);
+			int pos = (int)SendMessage(slider->hTrackbar, TBM_GETPOS, 0, 0);
 			if (slider->value != pos) {
 				slider->value = pos;
 				SendMessage(GetParent(hWnd), CUSTOM_WIDTH_CHANGE, pos, 0);
@@ -514,7 +514,7 @@ public:
 
 	void UpdateType() {
 		// 获取当前选择项并更新 type
-		int index = SendMessage(Combox, CB_GETCURSEL, 0, 0);
+		int index = (int)SendMessage(Combox, CB_GETCURSEL, 0, 0);
 		switch (index) {
 		case 0:
 			type = SYSTEM;

@@ -124,7 +124,7 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
+	int r = (int)sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
 	switch (DRAWTYPE(pro->type)) {
 	case DRAWSYSTEM:
 	{
@@ -158,7 +158,7 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	return 0;
 }
 
-int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
+int DrawCircle(HDC hdc, POINT center, int r, DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
