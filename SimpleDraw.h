@@ -176,7 +176,7 @@ POINT* mapMyPoints(MyPoint* mp, int length, int end) {
 	int count = 0;
 	for (int i = 0; i < end; i++) {
 		MyPoint pt = mp[i];
-		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
 			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
 		}
 	}
@@ -200,7 +200,7 @@ POINT* mapPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
 	int count = 0;
 	for (int i = 0; i < end; i++) {
 		MyPoint pt = mp[i];
-		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
 			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
 		}
 	}
@@ -214,7 +214,7 @@ POINT* mapLastMyPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
 	int count = 0;
 	for (int i = end - length; i < end; i++) {
 		MyPoint pt = mp[i];
-		if (pt.x != DBL_MAX && pt.y != DBL_MAX && count < length) {
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
 			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
 		}
 	}
@@ -293,7 +293,7 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 				int count = 0;
 				for (int i = 0; i < item->multipoint.endNum; i++) {
 					MyPoint pt = item->multipoint.points[i];
-					if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
+					if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
 					POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 					gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 				}
@@ -325,7 +325,7 @@ void drawStoreImg(HDC hdc, StoreImg* imgs) {
 	}
 }
 
-void drawDrawing(HDC hdc, DrawInfo* drawing) {
+void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pro) {
 	// 创建黑色画笔
 	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 	// 创建无色画刷
@@ -336,30 +336,51 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hPen);
 	SelectObject(hdc, hNullBrush);
-	switch (drawing->type) {
+	switch (drawing->info.type) {
+	case LINE:
+	{
+		if (HFMyPoint(&(drawing->lastRem))) {
+
+		}
+	}
+	break;
+	case CIRCLE:
+	{
+		if (HFMyPoint(&(drawing->lastRem))) {
+
+		}
+	}
+	break;
+	case RECTANGLE:
+	{
+		if (HFMyPoint(&(drawing->lastRem))) {
+
+		}
+	}
+	break;
 	case CURVE:
 	{
 		// 画曲线
-		if (drawing->multipoint.numPoints > 0) {
-			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing->multipoint.numPoints];
+		if (drawing->info.multipoint.numPoints > 0) {
+			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing->info.multipoint.numPoints];
 			int count = 0;
-			for (int i = 0; i < drawing->multipoint.endNum; i++) {
-				MyPoint pt = drawing->multipoint.points[i];
-				if (pt.x == DBL_MAX || pt.y == DBL_MAX) continue;
+			for (int i = 0; i < drawing->info.multipoint.endNum; i++) {
+				MyPoint pt = drawing->info.multipoint.points[i];
+				if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
 				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
 				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
 			}
-			if (count == drawing->multipoint.numPoints) {
+			if (count == drawing->info.multipoint.numPoints) {
 				// 使用GDI+绘图
 				Graphics graphics(hdc);
-				int color = drawing->proper.color;
+				int color = pro->color;
 				// 提取 ARGB 组件
 				int red = color & 0xFF;   // 提取 Red 分量
 				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
 				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
 
-				Pen pen(Color(255, red, green, blue), drawing->proper.width);
-				graphics.DrawCurve(&pen, gdiplusPoints, drawing->multipoint.numPoints);
+				Pen pen(Color(255, red, green, blue), pro->width);
+				graphics.DrawCurve(&pen, gdiplusPoints, drawing->info.multipoint.numPoints);
 			}
 			delete[]gdiplusPoints;
 		}
@@ -368,25 +389,25 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 	case MULTILINE:
 	{
 		// 画多义线
-		if (drawing->multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
-			DrawMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
+		if (drawing->info.multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
+			DrawMultiLine(hdc, points, drawing->info.multipoint.numPoints, pro);
 			delete[] points;
 		}
 		break;
 	}
 	case FMULTILINE:
 	{
-		POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
-		DrawFMultiLine(hdc, points, drawing->multipoint.numPoints, &drawing->proper);
+		POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
+		DrawFMultiLine(hdc, points, drawing->info.multipoint.numPoints, pro);
 		delete[] points;
 		break;
 	}
 	case BCURVE:
 	{
-		if (drawing->multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
-			DrawBSplineC(hdc, points, BSPLINE, drawing->multipoint.numPoints, &drawing->proper);
+		if (drawing->info.multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
+			DrawBSplineC(hdc, points, BSPLINE, drawing->info.multipoint.numPoints, pro);
 			delete[] points;
 		}
 		break;
@@ -399,13 +420,13 @@ void drawDrawing(HDC hdc, DrawInfo* drawing) {
 }
 
 // 图形计算或者辅助线显示
-void drawCoSDrawing(HDC hdc, DrawInfo* drawing) {
-	switch (drawing->type) {
+void drawCoSDrawing(HDC hdc, DrawingInfo* drawing, const DrawUnitProperty* pro) {
+	switch (drawing->info.type) {
 	case BCURVE:
 	{
-		if (drawing->multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->multipoint.points, drawing->multipoint.numPoints, drawing->multipoint.endNum);
-			DrawBCurveHelp(hdc, points, BSPLINE, drawing->multipoint.numPoints, &drawing->proper);
+		if (drawing->info.multipoint.numPoints > 0) {
+			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
+			DrawBCurveHelp(hdc, points, BSPLINE, drawing->info.multipoint.numPoints, pro);
 			delete[] points;
 		}
 		break;
@@ -433,7 +454,7 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	drawStoreImg(hdc, &allImg);
 
 	// 加载正在绘制的图形，第二层
-	drawDrawing(hdc, &drawing);
+	drawDrawing(hdc, &drawing, &customProperty);
 }
 
 // 中间窗口重绘
@@ -445,7 +466,7 @@ void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
 	FillRect(hdc, &rect, hBrush);
 
-	drawCoSDrawing(hdc, &drawing);
+	drawCoSDrawing(hdc, &drawing, &customProperty);
 }
 
 void EnableMouseTracking(HWND hWnd) {
@@ -677,4 +698,57 @@ void DrawABCurveHelp(HDC hdc, POINT start, POINT middle, POINT end, int degree) 
 
 void DrawFBCurve(HDC hdc, POINT* points, int degree, const DrawUnitProperty* pro) {
 	DrawBSplineC(hdc, points, degree, degree + 1, pro);
+}
+
+FileOpenAndSave SaveGTXFile(HWND hWnd) {
+	// 创建一个 OPENFILENAME 结构体
+	OPENFILENAME ofn;
+	wchar_t szFile[260];       // 文件路径缓冲区
+
+	// 初始化 OPENFILENAME 结构体
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = hWnd; // 父窗口句柄
+	ofn.lpstrFile = szFile;
+	ofn.lpstrFile[0] = '\0'; // 初始化文件名
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"Images (*.gtx)\0*.gtx\0All Files (*.*)\0*.*\0"; // 文件类型过滤器
+	ofn.lpstrTitle = L"Save Image File"; // 对话框标题
+	ofn.Flags = OFN_OVERWRITEPROMPT; // 如果文件已存在，提示覆盖
+
+	// 填充默认后缀
+	wcscpy_s(szFile, L"yourImgName.gtx");
+
+	// 弹出文件保存对话框
+	if (GetSaveFileName(&ofn)) {
+		return StoreImgToFile(&allImg, ofn.lpstrFile); // 保存到文件
+	}
+	else {
+		return DIALOGOPENFAILE;
+	}
+}
+
+FileOpenAndSave OpenGTXFile(HWND hWnd) {
+	// 创建一个 OPENFILENAME 结构体
+	OPENFILENAME ofn;
+	wchar_t szFile[260];       // 文件路径缓冲区
+
+	// 初始化 OPENFILENAME 结构体
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = hWnd; // 父窗口句柄
+	ofn.lpstrFile = szFile;
+	ofn.lpstrFile[0] = '\0'; // 初始化文件名
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"Images (*.gtx)\0*.gtx\0All Files (*.*)\0*.*\0"; // 文件类型过滤器
+	ofn.lpstrTitle = L"Open Image File"; // 对话框标题
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST; // 文件必须存在且路径必须有效
+
+	// 弹出文件打开对话框
+	if (GetOpenFileName(&ofn)) {
+		return FileToStoreImg(&allImg, ofn.lpstrFile); // 加载文件
+	}
+	else {
+		return DIALOGOPENFAILE;
+	}
 }

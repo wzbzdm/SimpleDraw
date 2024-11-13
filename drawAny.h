@@ -243,7 +243,7 @@ int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty
 	return 0;
 }
 
-int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+int DrawMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pro) {
 	for (int i = 0; i < length - 1; i++) {
 		DrawLine(hdc, start[i], start[i + 1], pro);
 	}
@@ -266,7 +266,7 @@ int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 	return 0;
 }
 
-int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+int DrawFMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pro) {
 	// 先填充颜色
 	PadColor(hdc, start, length, pro->bgcolor, pro->type);
 	for (int i = 0; i < length; i++) {

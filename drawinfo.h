@@ -14,6 +14,9 @@ extern "C" {
 #include <Windows.h>
 #include <cassert>
 
+#define ILLEGELMYPOINT	DBL_MAX
+#define INITMYPOINT		{ILLEGELMYPOINT, ILLEGELMYPOINT}
+
 // 最开始创建点数组时的大小，以后每次增加的大小5
 #define MAX_POINT 20
 #define ADD_POINT 10
@@ -124,6 +127,10 @@ extern "C" {
 		double y;
 	} MyPoint;
 
+	bool HFMyPoint(const MyPoint* mp) {
+		return mp->x != ILLEGELMYPOINT && mp->y != ILLEGELMYPOINT;
+	}
+
 	double Distance(MyPoint p1, MyPoint p2) {
 		return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
 	}
@@ -159,7 +166,7 @@ extern "C" {
 	} MyRectangle;
 
 	double GetMinDPointToRectangle(MyPoint p, MyRectangle rect) {
-		double dis = DBL_MAX;
+		double dis = ILLEGELMYPOINT;
 		double left = min(rect.start.x, rect.end.x);
 		double right = max(rect.start.x, rect.end.x);
 		double top = max(rect.start.y, rect.end.y);
@@ -209,7 +216,7 @@ extern "C" {
 		if (multipoint->endNum == multipoint->numPoints) return;
 		int lastNull = 0;
 		for (int i = 0; i < multipoint->endNum; i++) {
-			if (multipoint->points[i].x == DBL_MAX && multipoint->points[i].y == DBL_MAX) continue;
+			if (!HFMyPoint(&(multipoint->points[i]))) continue;
 			multipoint->points[lastNull++] = multipoint->points[i];
 		}
 
@@ -218,7 +225,7 @@ extern "C" {
 	}
 
 	double GetMinDPointToMultipoint(MyPoint p, MyMultiPoint* multipoint) {
-		double dis = DBL_MAX;
+		double dis = ILLEGELMYPOINT;
 		ScanMultipoint(multipoint);
 		if (multipoint->endNum != multipoint->numPoints) {
 			return -1;
@@ -239,6 +246,7 @@ extern "C" {
 	}
 
 	void InitFromMultipoint(MyMultiPoint* multipoint, MyMultiPoint* another) {
+		if (multipoint == another) return;
 		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
 		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));
 		multipoint->numPoints = another->numPoints;
@@ -275,8 +283,7 @@ extern "C" {
 		// 从后往前查找第一个匹配的点
 		for (int i = multipoint->endNum - 1; i >= 0; i--) {
 			if (multipoint->points[i].x == point.x && multipoint->points[i].y == point.y) {
-				multipoint->points[i].x = DBL_MAX;
-				multipoint->points[i].y = DBL_MAX;
+				multipoint->points[i] = INITMYPOINT;
 				multipoint->numPoints--; // 更新点的数量
 				break;
 			}
@@ -325,6 +332,10 @@ extern "C" {
 		};
 	} DrawInfo;
 
+	void setDrawInfoType(DrawInfo* di, ImgType it) {
+		di->type = it;
+	}
+
 	void MoveInfoBy(DrawInfo* draw, double x, double y) {
 		switch (draw->type) {
 		case LINE:
@@ -355,7 +366,7 @@ extern "C" {
 		case FMULTILINE:
 		{
 			for (int i = 0; i < draw->multipoint.endNum; i++) {
-				if (draw->multipoint.points[i].x == DBL_MAX || draw->multipoint.points[i].y == DBL_MAX) continue;
+				if (!HFMyPoint(&(draw->multipoint.points[i]))) continue;
 				draw->multipoint.points[i].x += x;
 				draw->multipoint.points[i].y += y;
 			}
@@ -625,6 +636,7 @@ extern "C" {
 	}
 
 	typedef enum FileOpenAndSave {
+		DIALOGOPENFAILE,
 		FILEOPENFAILE,
 		FILEVERSIONINVALID,
 		FILEHEADERINVALID,

@@ -204,7 +204,7 @@ void CalculateImg(StoreImg& allimg, int count) {
 bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     MyPoint mp;
     PointToCoordinate(coor, p, mp.x, mp.y);
-    double d = DBL_MAX;
+    double d = ILLEGELMYPOINT;
     switch (choose.type) {
     case LINE:
     {
@@ -299,7 +299,7 @@ int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
 // 使当前坐标系适应画布上的图像，方便观察
 void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 计算图像的最大最小坐标
-    double minX = DBL_MAX, minY = DBL_MAX, maxX = DBL_MIN, maxY = DBL_MIN;
+    double minX = ILLEGELMYPOINT, minY = ILLEGELMYPOINT, maxX = DBL_MIN, maxY = DBL_MIN;
 
     // 若没有图像
     if (img.endNum == 0) {
@@ -348,7 +348,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
         case MULTILINE:
         {
             for (int j = 0; j < item.multipoint.endNum; j++) {
-                if (item.multipoint.points[j].x == DBL_MAX || item.multipoint.points[j].y == DBL_MAX) continue;
+                if (item.multipoint.points[j].x == ILLEGELMYPOINT || item.multipoint.points[j].y == ILLEGELMYPOINT) continue;
                 if (item.multipoint.points[j].x < minX) minX = item.multipoint.points[j].x;
                 if (item.multipoint.points[j].y < minY) minY = item.multipoint.points[j].y;
                 if (item.multipoint.points[j].x > maxX) maxX = item.multipoint.points[j].x;
@@ -362,7 +362,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
 
     // 处理无效坐标情况
-    if (minX == DBL_MAX || minY == DBL_MAX || maxX == DBL_MAX || maxY == DBL_MAX) {
+    if (minX == ILLEGELMYPOINT || minY == ILLEGELMYPOINT || maxX == ILLEGELMYPOINT || maxY == ILLEGELMYPOINT) {
         // 没有有效的图形，设置默认坐标
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
         SetCoordinate(coor, center, DEFAULTRADIUS); // 设置坐标系参数

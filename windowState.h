@@ -19,6 +19,13 @@
 #define MINXPERZ			30			// 最小像素每刻度
 #define STEPSHOWNUM			4			// 多少个刻度下显示数据
 
+#define ILLEGELPOINT		-1
+#define INITPOINT			{ ILLEGELPOINT, ILLEGELPOINT}
+
+bool HFPoint(const POINT* pt) {
+	return pt->x != ILLEGELPOINT && pt->y != ILLEGELPOINT;
+}
+
 typedef struct windowState {
 	int width;
 	int height;
@@ -79,11 +86,11 @@ struct MyDrawState {
 
 // 合理绘图状态
 bool DrawStateInit(const MyDrawState& mst) {
-	return mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1;
+	return mst.lastLButtonPoint.x == ILLEGELPOINT && mst.lastLButtonPoint.y == ILLEGELPOINT;
 }
 
 bool TwoPointDraw(const POINT& p1, const POINT& p2) {
-	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != -1 && p1.y != -1 && p2.x != -1 && p2.y != -1);
+	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != ILLEGELPOINT && p1.y != ILLEGELPOINT && p2.x != ILLEGELPOINT && p2.y != ILLEGELPOINT);
 }
 
 bool InDraw(const MyDrawState& mst) {
@@ -99,7 +106,7 @@ bool CanRefresh(MyDrawState& mst) {
 	case DRAWFMULTI:
 	case DRAWMULTILINE:
 	{
-		if (mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1) {
+		if (!HFPoint(&(mst.lastLButtonPoint))) {
 			return false;
 		} 
 		return true;
@@ -128,7 +135,7 @@ void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 }
 
 void RestoreFormLastType(MyDrawState& mst) {
-	mst.lastLButtonPoint = { -1, -1 };
+	mst.lastLButtonPoint = INITPOINT;
 	mst.type = mst.lastType;
 	mst.preType.pop();
 }
@@ -136,8 +143,8 @@ void RestoreFormLastType(MyDrawState& mst) {
 void InitMyDrawState(MyDrawState& mst) {
 	mst.type = CHOOSEIMG;
 	mst.lastType = CHOOSEIMG;
-	mst.lastLButtonPoint = { -1, -1 };
-	mst.lastMMousemovePoint = { -1, -1 };
+	mst.lastLButtonPoint = INITPOINT;
+	mst.lastMMousemovePoint = INITPOINT;
 	mst.go = setTypeWithLastType;   // 初始化函数指针
 	mst.back = RestoreFormLastType; // 初始化函数指针
 }
@@ -157,7 +164,7 @@ void setType(MyDrawState& mst, DrawType type) {
 	case DRAWFMULTI:
 	case DRAWCURVE:
 	case DRAWBCURVE:
-		mst.lastLButtonPoint = { -1, -1 };
+		mst.lastLButtonPoint = INITPOINT;
 		break;
 	default:
 		break;
@@ -167,7 +174,7 @@ void setType(MyDrawState& mst, DrawType type) {
 void setKZType(MyDrawState& mst, KZDrawType type) {
 	mst.type = KZDRAW;
 	mst.kztype = type;
-	mst.lastLButtonPoint = { -1, -1 };
+	mst.lastLButtonPoint = INITPOINT;
 }
 
 void EndKZType(MyDrawState& mst) {
@@ -331,6 +338,49 @@ void SetActiveID(ChooseState &cs, int id) {
 	cs.choose = id;
 }
 
+// 更改 drawing 的定义添加其他数据使重绘时更完善
+typedef struct DrawingInfo {
+	DrawInfo info;
+	MyPoint lastRem;	// 鼠标移除时的坐标
+} DrawingInfo;
+
+void InitDrawing(DrawingInfo *di) {
+	di->info.type = NONE;
+	di->lastRem = { ILLEGELMYPOINT, ILLEGELMYPOINT };
+}
+
+void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
+	if (&(di->info) == info) return;
+	info->type = di->info.type;
+	info->proper = di->info.proper;
+	switch (di->info.type) {
+	case LINE:
+	{
+		info->line = di->info.line;
+	}
+	break;
+	case CIRCLE:
+	{
+		info->circle = di->info.circle;
+	}
+	break;
+	case RECTANGLE:
+	{
+		info->rectangle = di->info.rectangle;
+	}
+	break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+	{
+		InitFromMultipoint(&(info->multipoint), &(di->info.multipoint));
+	}
+	break;
+	default:
+		break;
+	}
+}
 
 // TODO: 工作区?
 // 静态数据
@@ -338,7 +388,7 @@ WindowState wstate = { 800, 650, 45 };
 MyDrawState mst = { CHOOSEIMG, CHOOSEIMG };		// 默认状态
 Coordinate coordinate;							// 坐标系
 StoreImg allImg;								// 存储所有的图形
-DrawInfo drawing;								// 当前正在绘制的图形
+DrawingInfo drawing;							// 当前正在绘制的图形
 DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 
