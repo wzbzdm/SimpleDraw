@@ -700,6 +700,77 @@ void DrawFBCurve(HDC hdc, POINT* points, int degree, const DrawUnitProperty* pro
 	DrawBSplineC(hdc, points, degree, degree + 1, pro);
 }
 
+// TODO: 贝塞尔曲线
+void DrawBezier(HDC hdc, POINT* points, int degree, int n, const DrawUnitProperty* pro) {
+	if (degree + 1 > n) return;
+	Graphics graphics(hdc);
+	Pen pen(Color(255, GetRValue(pro->color), GetGValue(pro->color), GetBValue(pro->color)), pro->width);
+
+	// 二阶基函数矩阵
+	double M2[3][3] = {
+		{1, -2, 1},
+		{0, 2, -2},
+		{0, 0, 1}
+	};
+
+	// 三阶基函数矩阵
+	double M3[4][4] = {
+		{1, -3, 3, -1},
+		{0, 3, -6, 3},
+		{0, 0, 3, -3},
+		{0, 0, 0, 1}
+	};
+
+	// 控制点的数量
+	int numPoints = degree + 1;
+	const int numSegments = 20;
+	double* T = new double[numPoints];
+	double lastX = 0, lastY = 0;
+	double pointX = 0, pointY = 0;
+	for (int i = 0; i < n - degree; i++) {
+
+		// 0 << t << 1
+		for (int k = 0; k <= numSegments; k++) {
+			pointX = 0;
+			pointY = 0;
+
+			double t = k / (double)numSegments;
+
+			// 为 degree = 2 和 degree = 3 分别计算基函数	{ 1, t, t * t.... }
+			T[0] = 1;
+			for (int m = 1; m < numPoints; m++) {
+				T[m] = T[m - 1] * t;
+			}
+
+			// 计算曲线点
+			for (int row = 0; row < numPoints; row++) {
+				double basis = 0;
+				for (int col = 0; col < numPoints; col++) {
+					if (degree == 2) {
+						basis += M2[row][col] * T[col];
+					}
+					else if (degree == 3) {
+						basis += M3[row][col] * T[col];
+					}
+				}
+				pointX += basis * points[i + row].x;
+				pointY += basis * points[i + row].y;
+			}
+
+			// 绘制曲线段
+			if (lastX != 0 && lastY != 0) {
+				graphics.DrawLine(&pen, static_cast<REAL>(lastX), static_cast<REAL>(lastY), static_cast<REAL>(pointX), static_cast<REAL>(pointY));
+			}
+
+			// 更新 lastX 和 lastY
+			lastX = pointX;
+			lastY = pointY;
+		}
+	}
+
+	delete[] T;
+}
+
 FileOpenAndSave SaveGTXFile(HWND hWnd) {
 	// 创建一个 OPENFILENAME 结构体
 	OPENFILENAME ofn;
@@ -751,4 +822,24 @@ FileOpenAndSave OpenGTXFile(HWND hWnd) {
 	else {
 		return DIALOGOPENFAILE;
 	}
+}
+
+void RefreshRadius(WPARAM wParam) {
+	// 放大时,坐标系radius减小，缩小时，坐标系radius增大
+	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+
+	// 缩放因子，可以调整为更适合的值
+	double scaleFactor = RADIUSCHANGESPEED;
+
+	// 使用指数缩放，确保 radius 始终大于0
+	coordinate.radius *= exp(-scaleFactor * zDelta);
+
+	// 防止缩放比例过小或过大
+	if (coordinate.radius < MINRADIUS) {
+		coordinate.radius = MINRADIUS; // 限制最小缩放比例
+	}
+	else if (coordinate.radius > MAXRADIUS) {
+		coordinate.radius = MAXRADIUS; // 限制最大缩放比例
+	}
+	return;
 }

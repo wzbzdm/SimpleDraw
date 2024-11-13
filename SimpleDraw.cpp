@@ -1784,21 +1784,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		UpdateStatusBarCoordinates(mp.x, mp.y);
 
 		// 放大时,坐标系radius减小，缩小时，坐标系radius增大
-		int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+		RefreshRadius(wParam);
 
-		// 缩放因子，可以调整为更适合的值
-		double scaleFactor = RADIUSCHANGESPEED;
-
-		// 使用指数缩放，确保 radius 始终大于0
-		coordinate.radius *= exp(-scaleFactor * zDelta);
-
-		// 防止缩放比例过小或过大
-		if (coordinate.radius < MINRADIUS) {
-			coordinate.radius = MINRADIUS; // 限制最小缩放比例
-		}
-		else if (coordinate.radius > MAXRADIUS) {
-			coordinate.radius = MAXRADIUS; // 限制最大缩放比例
-		}
 		// 更新Radius
 		UpdateStatusBarRadius(coordinate.radius);
 

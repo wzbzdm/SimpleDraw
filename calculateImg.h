@@ -246,6 +246,137 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     return true;
 }
 
+void MoveMyPoint(MyPoint& p, double x, double y) {
+	p.x += x;
+	p.y += y;
+}
+
+// 图像平移
+void MoveDrawInfo(DrawInfo &info, double x, double y) {
+	if (x == 0 && y == 0) return;
+    switch (info.type) {
+    case LINE:
+    {
+        MoveMyPoint(info.line.start, x, y);
+        MoveMyPoint(info.line.end, x, y);
+    }
+    break;
+    case CIRCLE:
+    {
+		MoveMyPoint(info.circle.center, x, y);
+    }
+    break;
+    case RECTANGLE:
+    {
+		MoveMyPoint(info.rectangle.start, x, y);
+		MoveMyPoint(info.rectangle.end, x, y);
+    }
+    break;
+    case CURVE:
+    case BCURVE:
+    case MULTILINE:
+    case FMULTILINE:
+    {
+        for (int i = 0; i < info.multipoint.endNum; i++) {
+            if (HFMyPoint(&(info.multipoint.points[i]))) {
+                MoveMyPoint(info.multipoint.points[i], x, y);
+            }
+        }
+    }
+    break;
+    }
+}
+
+void ZoomMyPoint(MyPoint &p, const MyPoint &center, double scale) {
+	p.x = center.x + (p.x - center.x) * scale;
+	p.y = center.y + (p.y - center.y) * scale;
+}
+
+// TODO: 缩放图元, 根据缩放比例，缩放所有坐标
+void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
+	if (scale == 1.0) return;
+    if (scale == 0) return;
+    // 根据中心点和相应比例改变图形坐标
+    switch (info.type) {
+    case LINE:
+    {
+		ZoomMyPoint(info.line.start, center, scale);
+		ZoomMyPoint(info.line.end, center, scale);
+    }
+    break;
+    case CIRCLE:
+    {
+		ZoomMyPoint(info.circle.center, center, scale);
+		info.circle.radius *= scale;
+    }
+    break;
+    case RECTANGLE:
+    {
+		ZoomMyPoint(info.rectangle.start, center, scale);
+		ZoomMyPoint(info.rectangle.end, center, scale);
+    }
+    break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+    case FMULTILINE:
+    {
+		for (int i = 0; i < info.multipoint.endNum; i++) {
+            if (HFMyPoint(&(info.multipoint.points[i]))) {
+                ZoomMyPoint(info.multipoint.points[i], center, scale);
+            }
+		}
+    }
+    break;
+    }
+}
+
+void RotateMyPoint(MyPoint& p, const MyPoint center, double angle) {
+	double x = p.x - center.x;
+	double y = p.y - center.y;
+	double x1 = x * cos(angle) - y * sin(angle);
+	double y1 = x * sin(angle) + y * cos(angle);
+	p.x = x1 + center.x;
+	p.y = y1 + center.y;
+}
+
+// 图像旋转
+void RotateDrawInfo(DrawInfo& info, const MyPoint& center, double angle) {
+	if (angle == 0) return;
+	// 根据中心点和相应角度改变图形坐标
+	switch (info.type) {
+	case LINE:
+	{
+		RotateMyPoint(info.line.start, center, angle);
+		RotateMyPoint(info.line.end, center, angle);
+	}
+	break;
+	case CIRCLE:
+	{
+		RotateMyPoint(info.circle.center, center, angle);
+	}
+	break;
+	case RECTANGLE:
+	{
+		RotateMyPoint(info.rectangle.start, center, angle);
+		RotateMyPoint(info.rectangle.end, center, angle);
+	}
+	break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+	{
+		for (int i = 0; i < info.multipoint.endNum; i++) {
+			if (HFMyPoint(&(info.multipoint.points[i]))) {
+				RotateMyPoint(info.multipoint.points[i], center, angle);
+			}
+		}
+	}
+	break;
+	}
+}
+
 // 图形选择逻辑
 int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
     int count = -1;
