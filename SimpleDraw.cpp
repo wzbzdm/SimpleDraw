@@ -35,8 +35,6 @@ HWND Edit1, Edit2;
 HWND Button;
 HWND bgColorSlider, ColorSlider, WidthSlider, TypeCombo;			// 新增控件变量
 
-int WindowMode = 2;			// 1: 画布模式 2: 坐标系模式
-
 HDC hdcMemFixed;			// 固定图像内存DC
 HDC hdcMemPreview;			// 预览图像内存DC
 HDC hdcMemCoS;				// 计算或选中图像内存DC
@@ -372,7 +370,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	RECT toolbarrect;
 	GetWindowRect(hToolBar, &toolbarrect);
 	MapWindowPoints(HWND_DESKTOP, GetParent(hToolBar), (LPPOINT)&toolbarrect, 2);
-	InitWindowRect(wrect, mainrect, toolbarrect, WindowMode);
+	InitWindowRect(wrect, mainrect, toolbarrect, systemode.worktype);
 
 	// 小窗口初始化
 	if (!InitSmallInstance(hInstance, nCmdShow)) return FALSE;
@@ -686,7 +684,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		MoveWindow(hToolBar, 0, 0, toolbarWidth, toolbarHeight, TRUE);
 
 		// 调整小窗口和画布区域
-		RefreshWindowRect(wrect, width, height, WindowMode); // 更新窗口矩形
+		RefreshWindowRect(wrect, width, height, systemode.worktype); // 更新窗口矩形
 
 		// 调整小窗口大小
 		MoveWindow(hSmallWnd, wrect.smallrect.x, wrect.smallrect.y, wrect.smallrect.width, wrect.smallrect.height, TRUE);
@@ -1069,10 +1067,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_PAINT:
 	{
-		switch (WindowMode) {
-		case 1:
+		switch (systemode.worktype) {
+		case CanvasMode:
 			break;
-		case 2:
+		case CoordinateMode:
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(hCWnd, &ps);
 

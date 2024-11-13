@@ -620,7 +620,6 @@ void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUn
 	delete[] T;
 }
 
-
 // 绘制 B 样条曲线，使用 MyPoint* 作为控制点数组
 void DrawBCurve(HDC hdc, POINT* points, int degree, int n, const DrawUnitProperty* pro) {
 	// 画虚线

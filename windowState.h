@@ -382,8 +382,17 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 	}
 }
 
+#define CanvasMode			1		// 画布模式
+#define CoordinateMode		2		// 坐标模式
+#define DEFAULTSYSTEMMODE	{ CoordinateMode }
+
+typedef struct SYSTEMMODE {
+	int worktype;
+} SYSTEMMODE;
+
 // TODO: 工作区?
 // 静态数据
+SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
 WindowState wstate = { 800, 650, 45 };
 MyDrawState mst = { CHOOSEIMG, CHOOSEIMG };		// 默认状态
 Coordinate coordinate;							// 坐标系
