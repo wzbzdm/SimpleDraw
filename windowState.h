@@ -90,6 +90,7 @@ struct MyDrawState {
 		POINT lastMMousemovePoint;
 		POINT lastLButtonPoint;
 	};
+	POINT lastMouseP;
 };
 
 // 合理绘图状态
@@ -133,7 +134,6 @@ bool CanRefresh(MyDrawState& mst) {
 	default:
 		return true;
 	}
-	
 }
 
 void setTypeWithLastType(MyDrawState& mst, DrawType type) {
@@ -143,9 +143,11 @@ void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 }
 
 void RestoreFormLastType(MyDrawState& mst) {
-	mst.lastLButtonPoint = INITPOINT;
-	mst.type = mst.lastType;
-	mst.preType.pop();
+	if (mst.type == MMOUSEMOVE) {
+		mst.lastLButtonPoint = INITPOINT;
+		mst.type = mst.lastType;
+		mst.preType.pop();
+	}
 }
 
 void InitMyDrawState(MyDrawState& mst) {

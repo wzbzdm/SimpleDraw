@@ -36,6 +36,7 @@ void CircleNextPoint(POINT point) {
 	PointToCoordinate(coordinate, point, end.x, end.y);
 	double r = sqrt((drawing.info.circle.center.x - end.x) * (drawing.info.circle.center.x - end.x) + (drawing.info.circle.center.y - end.y) * (drawing.info.circle.center.y - end.y));
 	drawing.info.circle.radius = r;
+	drawing.info.proper = customProperty;
 
 	DrawInfo circle;
 	InitDrawInfo(&drawing, &circle);
@@ -80,6 +81,7 @@ void MultiPNextPoint(POINT point) {
 }
 
 void MultiPDone() {
+	drawing.info.proper = customProperty;
 	DrawInfo mline;
 	InitDrawInfo(&drawing, &mline);
 	AddDrawInfoToStoreImg(&allImg, mline);
@@ -104,6 +106,7 @@ void BCurveNextPoint(POINT point) {
 }
 
 void BCurveDone() {
+	drawing.info.proper = customProperty;
 	DrawInfo bcurve;
 	InitDrawInfo(&drawing, &bcurve);
 	AddDrawInfoToStoreImg(&allImg, bcurve);

@@ -223,45 +223,98 @@ POINT* mapLastMyPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
 	return points;
 }
 
+void DrawLineM(HDC hdc, const MyPoint& mstart, const MyPoint& mend, const DrawUnitProperty *pro) {
+	// 将坐标转换为屏幕坐标
+	POINT start = mapCoordinate(coordinate, mstart.x, mstart.y);
+	POINT end = mapCoordinate(coordinate, mend.x, mend.y);
+	// 需要进行坐标转换
+	DrawLine(hdc, start, end, pro);
+}
+
+void DrawCircleM(HDC hdc, const MyPoint& center, double radius, const DrawUnitProperty* pro) {
+	POINT pt = mapCoordinate(coordinate, center.x, center.y);
+	int r = (int)(radius / coordinate.radius);
+	DrawCircle(hdc, pt, r, pro);
+}
+
+void DrawCircleM(HDC hdc, const MyPoint& center, const MyPoint& end, const DrawUnitProperty* pro) {
+	POINT pt = mapCoordinate(coordinate, center.x, center.y);
+	POINT pt2 = mapCoordinate(coordinate, end.x, end.y);
+	int r = (int)sqrt((pt2.x - pt.x) * (pt2.x - pt.x) + (pt2.y - pt.y) * (pt2.y - pt.y));
+	DrawCircle(hdc, pt, r, pro);
+}
+
+void DrawRectangleM(HDC hdc, const MyPoint& mstart, const MyPoint& mend, const DrawUnitProperty* pro) {
+	POINT start = mapCoordinate(coordinate, mstart.x, mstart.y);
+	POINT end = mapCoordinate(coordinate, mend.x, mend.y);
+	DrawRectangle(hdc, start, end, pro);
+}
+
+void DrawMultiLineM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
+	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	DrawMultiLine(hdc, points, numPoints, pro);
+	delete[] points;
+}
+
+void DrawFMultiLineM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
+	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	DrawFMultiLine(hdc, points, numPoints, pro);
+	delete[] points;
+}
+
+void DrawBCurveM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
+	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	DrawBSplineC(hdc, points, BSPLINE, numPoints, pro);
+	delete[] points;
+}
+
+void DrawCurveM(HDC hdc, MyPoint* points, int numPoints, int endNum, const DrawUnitProperty* pro) {
+	Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[numPoints];
+	int count = 0;
+	for (int i = 0; i < endNum; i++) {
+		MyPoint pt = points[i];
+		if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
+		POINT p = mapCoordinate(coordinate, pt.x, pt.y);
+		gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
+	}
+	if (count == numPoints) {
+		// 使用GDI+绘图
+		Graphics graphics(hdc);
+		int color = pro->color;
+		// 提取 ARGB 组件
+		int red = color & 0xFF;   // 提取 Red 分量
+		int green = (color >> 8) & 0xFF;  // 提取 Green 分量
+		int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
+
+		Pen pen(Color(255, red, green, blue), pro->width);
+		graphics.DrawCurve(&pen, gdiplusPoints, numPoints);
+	}
+	delete[]gdiplusPoints;
+}
+
 void drawDrawInfo(HDC hdc, DrawInfo *item) {
 	switch (item->type) {
 		case LINE:
 		{
-			// 将坐标转换为屏幕坐标
-			POINT start = mapCoordinate(coordinate, item->line.start.x, item->line.start.y);
-			POINT end = mapCoordinate(coordinate, item->line.end.x, item->line.end.y);
-			// 需要进行坐标转换
-			DrawLine(hdc, start, end, &item->proper);
+			DrawLineM(hdc, item->line.start, item->line.end, &item->proper);
 			break;
 		}
 		case CIRCLE:
 		{
-			// 画圆
-			MyPoint center = item->circle.center;
-			double radius = item->circle.radius;
-			// 将坐标转换为屏幕坐标
-			POINT pt = mapCoordinate(coordinate, center.x, center.y);
-			int r = (int)(radius / coordinate.radius);
-
-			DrawCircle(hdc, pt, r, &item->proper);
+			DrawCircleM(hdc, item->circle.center, item->circle.radius, &item->proper);
 			break;
 		}
 		case RECTANGLE:
 		{
 			// 画矩形
-			POINT start = mapCoordinate(coordinate, item->rectangle.start.x, item->rectangle.start.y);
-			POINT end = mapCoordinate(coordinate, item->rectangle.end.x, item->rectangle.end.y);
-
-			DrawRectangle(hdc, start, end, &item->proper);
+			DrawRectangleM(hdc, item->rectangle.start, item->rectangle.end, &item->proper);
 			break;
 		}
 		case MULTILINE:
 		{
 			// 画多义线
 			if (item->multipoint.numPoints > 0) {
-				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
-				DrawMultiLine(hdc, points, item->multipoint.numPoints, &item->proper);
-				delete[] points;
+				DrawMultiLineM(hdc, item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum, &item->proper);
 			}
 			break;
 		}
@@ -269,18 +322,14 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		{
 			// 画封闭多义线
 			if (item->multipoint.numPoints > 0) {
-				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
-				DrawFMultiLine(hdc, points, item->multipoint.numPoints, &item->proper);
-				delete[] points;
+				DrawFMultiLineM(hdc, item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum, &item->proper);
 			}
 			break;
 		}
 		case BCURVE:
 		{
 			if (item->multipoint.numPoints > 0) {
-				POINT* points = mapMyPoints(item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum);
-				DrawBSplineC(hdc, points, BSPLINE, item->multipoint.numPoints, &item->proper);
-				delete[] points;
+				DrawBCurveM(hdc, item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum, &item->proper);
 			}
 
 			break;
@@ -289,27 +338,7 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		{
 			// 画曲线
 			if (item->multipoint.numPoints > 0) {
-				Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[item->multipoint.numPoints];
-				int count = 0;
-				for (int i = 0; i < item->multipoint.endNum; i++) {
-					MyPoint pt = item->multipoint.points[i];
-					if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
-					POINT p = mapCoordinate(coordinate, pt.x, pt.y);
-					gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
-				}
-				if (count == item->multipoint.numPoints) {
-					// 使用GDI+绘图
-					Graphics graphics(hdc);
-					int color = item->proper.color;
-					// 提取 ARGB 组件
-					int red = color & 0xFF;   // 提取 Red 分量
-					int green = (color >> 8) & 0xFF;  // 提取 Green 分量
-					int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
-
-					Pen pen(Color(255, red, green, blue), item->proper.width);
-					graphics.DrawCurve(&pen, gdiplusPoints, item->multipoint.numPoints);
-				}
-				delete[]gdiplusPoints;
+				DrawCurveM(hdc, item->multipoint.points, item->multipoint.numPoints, item->multipoint.endNum, &item->proper);
 			}
 			break;
 		}
@@ -325,10 +354,16 @@ void drawStoreImg(HDC hdc, StoreImg* imgs) {
 	}
 }
 
+/*
+若当前绘制图像已经有部分绘制到固定画布，则需要覆盖它
+
+多个点绘制的图形，预览暂时不刷新
+*/
+
 void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pro) {
-	// 创建黑色画笔
-	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-	// 创建无色画刷
+	// 创建画笔
+	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
+	// 创建画刷
 	LOGBRUSH lbb;
 	lbb.lbStyle = BS_NULL;
 	lbb.lbColor = RGB(0, 0, 0);
@@ -339,22 +374,28 @@ void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pr
 	switch (drawing->info.type) {
 	case LINE:
 	{
-		if (HFMyPoint(&(drawing->lastRem))) {
-
+		MyPoint first = drawing->info.line.start;
+		MyPoint end = drawing->lastRem;
+		if (HFMyPoint(&first) && HFMyPoint(&end)) {
+			DrawLineM(hdc, first, end, pro);
 		}
 	}
 	break;
 	case CIRCLE:
 	{
-		if (HFMyPoint(&(drawing->lastRem))) {
-
+		MyPoint center = drawing->info.circle.center;
+		MyPoint end = drawing->lastRem;
+		if (HFMyPoint(&center) && HFMyPoint(&end)) {
+			DrawCircleM(hdc, center, end, pro);
 		}
 	}
 	break;
 	case RECTANGLE:
 	{
-		if (HFMyPoint(&(drawing->lastRem))) {
-
+		MyPoint start = drawing->info.rectangle.start;
+		MyPoint end = drawing->lastRem;
+		if (HFMyPoint(&start) && HFMyPoint(&end)) {
+			DrawRectangleM(hdc, start, end, pro);
 		}
 	}
 	break;
@@ -362,27 +403,7 @@ void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pr
 	{
 		// 画曲线
 		if (drawing->info.multipoint.numPoints > 0) {
-			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing->info.multipoint.numPoints];
-			int count = 0;
-			for (int i = 0; i < drawing->info.multipoint.endNum; i++) {
-				MyPoint pt = drawing->info.multipoint.points[i];
-				if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
-				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
-				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
-			}
-			if (count == drawing->info.multipoint.numPoints) {
-				// 使用GDI+绘图
-				Graphics graphics(hdc);
-				int color = pro->color;
-				// 提取 ARGB 组件
-				int red = color & 0xFF;   // 提取 Red 分量
-				int green = (color >> 8) & 0xFF;  // 提取 Green 分量
-				int blue = (color >> 16) & 0xFF;          // 提取 Blue 分量
-
-				Pen pen(Color(255, red, green, blue), pro->width);
-				graphics.DrawCurve(&pen, gdiplusPoints, drawing->info.multipoint.numPoints);
-			}
-			delete[]gdiplusPoints;
+			DrawCurveM(hdc, drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum, pro);
 		}
 		break;
 	}
@@ -390,25 +411,21 @@ void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pr
 	{
 		// 画多义线
 		if (drawing->info.multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
-			DrawMultiLine(hdc, points, drawing->info.multipoint.numPoints, pro);
-			delete[] points;
+			DrawMultiLineM(hdc, drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum, pro);
 		}
 		break;
 	}
 	case FMULTILINE:
 	{
-		POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
-		DrawFMultiLine(hdc, points, drawing->info.multipoint.numPoints, pro);
-		delete[] points;
+		if (drawing->info.multipoint.numPoints > 0) {
+			DrawFMultiLineM(hdc, drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum, pro);
+		}
 		break;
 	}
 	case BCURVE:
 	{
 		if (drawing->info.multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
-			DrawBSplineC(hdc, points, BSPLINE, drawing->info.multipoint.numPoints, pro);
-			delete[] points;
+			DrawBCurveM(hdc, drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum, pro);
 		}
 		break;
 	}
@@ -439,7 +456,7 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	RECT rect;
 	GetClientRect(hCWnd, &rect);
 
-	// 重新填充为白色
+	// 重新填充背景色
 	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
 	FillRect(hdc, &rect, hBrush);
 

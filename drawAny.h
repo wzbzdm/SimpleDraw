@@ -113,7 +113,7 @@ int StoreLineTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro)
 	return 0;
 }
 
-int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
+int DrawCircle(HDC hdc, POINT center, POINT rp, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
@@ -158,7 +158,7 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	return 0;
 }
 
-int DrawCircle(HDC hdc, POINT center, int r, DrawUnitProperty* pro) {
+int DrawCircle(HDC hdc, POINT center, int r, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
@@ -214,7 +214,7 @@ int StoreCircleTo(StoreImg* sti, MyPoint center, MyPoint rp, DrawUnitProperty pr
 	return 0;
 }
 
-int DrawRectangle(HDC hdc, POINT start, POINT end, DrawUnitProperty* pro) {
+int DrawRectangle(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷

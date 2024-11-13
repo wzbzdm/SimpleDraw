@@ -6,14 +6,14 @@
 #include "customSlider.h"
 #include "ywljDraw.h"
 
-#define MAX_LOADSTRING 100
-#define COLORSLIDE	1
-#define BGSLIDE		2
+#define MAX_LOADSTRING	100
+#define COLORSLIDE		1
+#define BGSLIDE			2
 #define CUSTOM_REDRAW_DRAWING	(WM_USER + 20)
 
 // 定时器
 #define REDRAW				1
-#define HZ					200
+#define HZ					100
 #define REDRAW_INTERVAL		1000 / HZ
 bool needRedraw = false;
 #define NeedRedraw()	(needRedraw = true)
@@ -1356,8 +1356,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case MMOUSEMOVE:
 		{
-			// 清除状态
-			RestoreFormLastType(mst);
+			// 触发 WM_MBUTTONUP
+			SendMessage(hCanvasWnd, WM_MBUTTONUP, NULL, NULL);
+
 			break;
 		}
 		case CHOOSEN:
@@ -1367,8 +1368,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 设置离开时的坐标
 			MyPoint mp;
 
-			if (HFPoint(&(mst.lastLButtonPoint))) {
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, mp.x, mp.y);
+			if (HFPoint(&(mst.lastMouseP))) {
+				PointToCoordinate(coordinate, mst.lastMouseP, mp.x, mp.y);
 				drawing.lastRem = mp;
 			}
 			
@@ -1747,6 +1748,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		default:
 			break;
 		}
+		mst.lastMouseP = point;
 		break;
 	}
 	case WM_KEYDOWN:

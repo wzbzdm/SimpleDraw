@@ -334,6 +334,23 @@ extern "C" {
 
 	void setDrawInfoType(DrawInfo* di, ImgType it) {
 		di->type = it;
+		switch (it) {
+		case LINE:
+		{
+			di->line.start = INITMYPOINT;
+		}
+		break;
+		case CIRCLE:
+		{
+			di->circle.center = INITMYPOINT;
+		}
+		break;
+		case RECTANGLE:
+		{
+			di->rectangle.start = INITMYPOINT;
+		}
+		break;
+		}
 	}
 
 	void MoveInfoBy(DrawInfo* draw, double x, double y) {
