@@ -22,6 +22,14 @@
 #define ILLEGELPOINT		-1
 #define INITPOINT			{ ILLEGELPOINT, ILLEGELPOINT}
 
+#define CanvasMode			1		// 画布模式
+#define CoordinateMode		2		// 坐标模式
+#define DEFAULTSYSTEMMODE	{ CoordinateMode }
+
+typedef struct SYSTEMMODE {
+	int worktype;
+} SYSTEMMODE;
+
 bool HFPoint(const POINT* pt) {
 	return pt->x != ILLEGELPOINT && pt->y != ILLEGELPOINT;
 }
@@ -184,12 +192,12 @@ void EndKZType(MyDrawState& mst) {
 void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrect, const int mode) {
 	int padding;
 	switch (mode) {
-	case 1:
+	case CanvasMode:
 	{
 		padding = 60;
 	}
 	break;
-	case 2:
+	case CoordinateMode:
 	{
 		padding = 0;
 	}
@@ -208,7 +216,7 @@ void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrec
 
 void RefreshWindowRect(WindowRect& wr, const int width, const int height, const int mode) {
 	switch (mode) {
-	case 1:
+	case CanvasMode:
 	{
 		// 工具栏保持高度不变，宽度适应主窗口
 		wr.mainrect = { 0, 0, width, height };
@@ -240,7 +248,7 @@ void RefreshWindowRect(WindowRect& wr, const int width, const int height, const 
 		wr.statusbar = { 0, wr.smallrect.y + wr.smallrect.height, width, STATUSBARHEIGHT };
 	}
 	break;
-	case 2:
+	case CoordinateMode:
 	{
 		// 工具栏保持高度不变，宽度适应主窗口
 		wr.mainrect = { 0, 0, width, height };
@@ -381,14 +389,6 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 		break;
 	}
 }
-
-#define CanvasMode			1		// 画布模式
-#define CoordinateMode		2		// 坐标模式
-#define DEFAULTSYSTEMMODE	{ CoordinateMode }
-
-typedef struct SYSTEMMODE {
-	int worktype;
-} SYSTEMMODE;
 
 // TODO: 工作区?
 // 静态数据
