@@ -4,6 +4,7 @@
 #include "showRMenu.h"
 #include "calculateImg.h"
 #include "customSlider.h"
+#include "ywljDraw.h"
 
 #define MAX_LOADSTRING 100
 #define COLORSLIDE	1
@@ -1125,73 +1126,38 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case DRAWLINE:
 		{
 			if (DrawStateInit(mst)) {
-				mst.lastLButtonPoint = point;
-				MyPoint start;
-				PointToCoordinate(coordinate, point, start.x, start.y);
-				drawing.info.line.start = start;
+				LineFirstPoint(point);
 			}
 			else {
 				// 在固定图像上绘制线
 				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
-				MyPoint end;
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				drawing.info.line.end = end;
-				drawing.info.proper = customProperty;
-
-				// 保存线
-				DrawInfo* line = new DrawInfo;
-				InitDrawInfo(&drawing, line);
-				AddDrawInfoToStoreImg(&allImg, *line);
-				mst.lastLButtonPoint = INITPOINT;
+				LineNextPoint(point);
 			}
 			break;
 		}
 		case DRAWCIRCLE:
 		{
 			if (DrawStateInit(mst)) {
-				mst.lastLButtonPoint = point;
-				MyPoint center;
-				PointToCoordinate(coordinate, point, center.x, center.y);
-				drawing.info.circle.center = center;
+				CircleFirstPoint(point);
 			}
 			else {
 				// 画圆
 				DrawCircle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画圆,第一个点为圆心，第二个点为半径
-				MyPoint end;
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				double r = sqrt((drawing.info.circle.center.x - end.x) * (drawing.info.circle.center.x - end.x) + (drawing.info.circle.center.y - end.y) * (drawing.info.circle.center.y - end.y));
-				drawing.info.circle.radius = r;
-
-				DrawInfo *circle = new DrawInfo;
-				InitDrawInfo(&drawing, circle);
-				AddDrawInfoToStoreImg(&allImg, *circle);
-				mst.lastLButtonPoint = INITPOINT;
+				CircleNextPoint(point);
 			}
 			break;
 		}
 		case DRAWRECTANGLE:
 		{
 			if (DrawStateInit(mst)) {
-				mst.lastLButtonPoint = point;
-				MyPoint start;
-				PointToCoordinate(coordinate, point, start.x, start.y);
-				drawing.info.rectangle.start = start;
+				RectFirstPoint(point);
 			}
 			else {
 				// 画矩形
 				DrawRectangle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 保存矩形
-				MyPoint end;
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				drawing.info.rectangle.end = end;
-				drawing.info.proper = customProperty;
-
-				// 保存线
-				DrawInfo* line = new DrawInfo;
-				InitDrawInfo(&drawing, line);
-				AddDrawInfoToStoreImg(&allImg, *line);
-				mst.lastLButtonPoint = INITPOINT;
+				RectNextPoint(point);
 			}
 			break;
 		}
@@ -1200,21 +1166,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 多义线绘制
 			if (DrawStateInit(mst)) {
-				mst.lastLButtonPoint = point;
-				// 初始化 mst.
-				InitMultipoint(&(drawing.info.multipoint));
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
+				MultiPFirstPoint(point);
 			}
 			else {
 				// 画一条线
 				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 将上一个点保存到DrawInfo中
-				mst.lastLButtonPoint = point;
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
+				MultiPNextPoint(point);
 			}
 			break;
 		}
@@ -1224,27 +1182,17 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 将当前点保存到DrawInfo中
 			if (DrawStateInit(mst)) {
 				// 初始化 mst.
-				InitMultipoint(&(drawing.info.multipoint));
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
-				mst.lastLButtonPoint = point;
+				BCurveFirstPoint(point);
 			}
 			// 1个点
 			else if(drawing.info.multipoint.numPoints == 1){
 				// 将当前点保存到DrawInfo中
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
-
 				DrawXLine(hdcMemCoS, mst.lastLButtonPoint, point, 1);
-				mst.lastLButtonPoint = point;
+				BCurveNextPoint(point);
 			}
 			// 两个点
 			else {
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, point, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
+				BCurveNextPoint(point);
 
 				ScanMultipoint(&(drawing.info.multipoint));
 				POINT* pts;
@@ -1270,17 +1218,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			// 曲线绘制, 先设置起点和终点
 			if (DrawStateInit(mst)) {
-				mst.lastLButtonPoint = point;
-				InitMultipoint(&(drawing.info.multipoint));
-				MyPoint lastPoint;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, lastPoint.x, lastPoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), lastPoint);
+				MultiPFirstPoint(point);
 			}
 			else {
-				MyPoint nowpoint;
-				PointToCoordinate(coordinate, point, nowpoint.x, nowpoint.y);
-				AddPointToMultipoint(&(drawing.info.multipoint), nowpoint);
-				mst.lastLButtonPoint = point;
+				MultiPNextPoint(point);
 			}
 			break;
 		}
@@ -1373,11 +1314,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 在固定图像上绘制线
 				DrawLine(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画线
-				MyPoint start, end;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				StoreLineTo(&allImg, start, end, customProperty);
-				mst.lastLButtonPoint = INITPOINT;
+				LineNextPoint(point);
 				// 触发重绘
 				NeedRedraw();
 			}
@@ -1391,11 +1328,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				ClearContent(hdcMemPreview);
 				DrawCircle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
 				// 画圆,第一个点为圆心，第二个点为半径
-				MyPoint start, end;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				StoreCircleTo(&allImg, start, end, customProperty);
-				mst.lastLButtonPoint = INITPOINT;
+				CircleNextPoint(point);
 				// 触发重绘
 				NeedRedraw();
 			}
@@ -1408,11 +1341,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				// 画矩形
 				ClearContent(hdcMemPreview);
 				DrawRectangle(hdcMemFixed, mst.lastLButtonPoint, point, &customProperty);
-				MyPoint start, end;
-				PointToCoordinate(coordinate, mst.lastLButtonPoint, start.x, start.y);
-				PointToCoordinate(coordinate, point, end.x, end.y);
-				StoreRectangleTo(&allImg, start, end, customProperty);
-				mst.lastLButtonPoint = INITPOINT;
+				RectNextPoint(point);
 				// 触发重绘
 				NeedRedraw();
 			}
@@ -1481,14 +1410,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				NeedRedraw();
 				break;
 			}
-			DrawInfo mline;
-			mline.type = MULTILINE;
-			mline.proper = customProperty;
-			InitFromMultipoint(&(mline.multipoint), &(drawing.info.multipoint));
-			AddDrawInfoToStoreImg(&allImg, mline);
-			// 清空状态
-			mst.lastLButtonPoint = INITPOINT;
-			ClearMultipoint(&(drawing.info.multipoint));
+			MultiPDone();
 			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
@@ -1514,14 +1436,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			DrawFMultiLine(hdcMemFixed, pts, drawing.info.multipoint.numPoints, &customProperty);
 			delete[] pts;
 
-			DrawInfo mline;
-			mline.type = FMULTILINE;
-			mline.proper = customProperty;
-			InitFromMultipoint(&(mline.multipoint), &(drawing.info.multipoint));
-			AddDrawInfoToStoreImg(&allImg, mline);
-			// 清空状态
-			mst.lastLButtonPoint = INITPOINT;
-			ClearMultipoint(&(drawing.info.multipoint));
+			MultiPDone();
+
 			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
@@ -1540,15 +1456,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				NeedRedraw();
 				break;
 			}
-			DrawInfo bcurve;
-			bcurve.type = BCURVE;
-			bcurve.proper = customProperty;
-			InitFromMultipoint(&(bcurve.multipoint), &(drawing.info.multipoint));
-			AddDrawInfoToStoreImg(&allImg, bcurve);
+			BCurveDone();
 
 			// 清空状态
-			mst.lastLButtonPoint = INITPOINT;
-			ClearMultipoint(&(drawing.info.multipoint));
 			ClearContent(hdcMemPreview);
 			ClearContent(hdcMemCoS);
 			NeedRedraw();
@@ -1562,11 +1472,6 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				SendMessage(hWnd, WM_COMMAND, (WPARAM)CHOOSE, 0);
 				break;
 			}
-			DrawInfo curve;
-			curve.proper = customProperty;
-			curve.type = CURVE;
-			InitFromMultipoint(&(curve.multipoint), &(drawing.info.multipoint));
-			AddDrawInfoToStoreImg(&allImg, curve);
 			// 绘制到固定画布上
 			Gdiplus::Point* gdiplusPoints = new Gdiplus::Point[drawing.info.multipoint.numPoints];
 			int count = 0;
@@ -1587,9 +1492,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 
 			delete[] gdiplusPoints;
+
+			// 保存绘图信息
+			MultiPDone();
 			// 清空状态
-			mst.lastLButtonPoint = INITPOINT;
-			ClearMultipoint(&(drawing.info.multipoint));
 			ClearContent(hdcMemPreview);
 			NeedRedraw();
 			break;
