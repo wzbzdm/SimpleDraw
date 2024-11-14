@@ -314,6 +314,7 @@ extern "C" {
 	}
 
 	void ClearMultipoint(MyMultiPoint* multipoint) {
+		if (!multipoint) return;
 		free(multipoint->points);
 		multipoint->points = NULL;
 		multipoint->numPoints = 0;
@@ -394,7 +395,7 @@ extern "C" {
 		}
 	}
 
-	void ClearDrawingImg(DrawInfo* drawing) {
+	void ClearDrawInfo(DrawInfo* drawing) {
 		switch (drawing->type) {
 		case CURVE:
 		case BCURVE:
@@ -459,8 +460,10 @@ extern "C" {
 		store->num++;
 	}
 
-	void RemoveDrawInfoFromStoreImg(StoreImg* store, DrawInfo draw) {
-
+	void RemoveDrawInfoFromStoreImg(StoreImg* store, int index) {
+		if (store->img->type != NONE) {
+			store->img->type = NONE;
+		}
 	}
 
 	void MoveDrawInfoTo(StoreImg* store, DrawInfo form, DrawInfo to) {
@@ -468,6 +471,9 @@ extern "C" {
 	}
 
 	void ClearStoreImg(StoreImg* store) {
+		for (int i = 0; i < store->endNum; i++) {
+			ClearDrawInfo(&(store->img[i]));
+		}
 		if (store->img) {
 			free(store->img);
 		}

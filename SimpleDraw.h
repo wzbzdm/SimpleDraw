@@ -859,3 +859,36 @@ void RefreshRadius(WPARAM wParam) {
 	}
 	return;
 }
+
+bool LButtonClick(const POINT &point) {
+	return mst.lastLButtonDown.x == point.x && mst.lastLButtonDown.y == point.y;
+}
+
+void StartDraw() {
+	mst.draw = true;
+}
+
+bool InDraw() {
+	return mst.draw;
+}
+
+bool OnlyOnePoint() {
+	return drawing.info.multipoint.numPoints == 1;
+}
+
+bool BCurvePointCannotDraw() {
+	return drawing.info.multipoint.numPoints <= BSPLINE;
+}
+
+void EndDraw() {
+	mst.draw = false;
+	ClearStateP(mst);	// TODO: 是否可以不清除
+}
+
+void InitDrawingFromInfo(DrawingInfo& drawing, DrawInfo& di) {
+	drawing.info.type = di.type;
+}
+
+void PopStoreImgToDrawing(StoreImg& imgs, DrawingInfo& drawing, int index) {
+
+}

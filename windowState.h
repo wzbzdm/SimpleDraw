@@ -80,22 +80,39 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
+	bool draw;
 	DrawType type;
 	DrawType lastType;
 	std::stack<DrawType> preType;
 	typeGo* go;
 	typeBack* back;
 	KZDrawType kztype;
-	union {
-		POINT lastMMousemovePoint;
-		POINT lastLButtonPoint;
-	};
 	POINT lastMouseP;
+	POINT lastMMouseBDown;
+	POINT lastMMouseBUp;
+	POINT lastLButtonDown;
+	POINT lastLButtonUp;
 };
 
-// 合理绘图状态
-bool DrawStateInit(const MyDrawState& mst) {
-	return mst.lastLButtonPoint.x == ILLEGELPOINT && mst.lastLButtonPoint.y == ILLEGELPOINT;
+void LButtonDown(MyDrawState &mst, POINT point) {
+	mst.lastLButtonDown = point;
+}
+
+void LButtonUp(MyDrawState &mst, POINT point) {
+	mst.lastLButtonUp = point;
+}
+
+void MMouseDown(MyDrawState &mst, POINT point) {
+	mst.lastMMouseBDown = point;
+}
+
+void MMouseUp(MyDrawState &mst, POINT point) {
+	mst.lastMMouseBUp;
+}
+
+// TODO:
+void MouseMove(MyDrawState &mst, POINT point) {
+	mst.lastMouseP = point;
 }
 
 bool TwoPointDraw(const POINT& p1, const POINT& p2) {
@@ -106,45 +123,27 @@ bool InDraw(const MyDrawState& mst) {
 	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
 }
 
-bool CanRefresh(MyDrawState& mst) {
-	switch (mst.type) {
-	case DRAWLINE:
-	case DRAWCIRCLE:
-	case DRAWRECTANGLE:
-	case DRAWCURVE:
-	case DRAWFMULTI:
-	case DRAWMULTILINE:
-	{
-		if (!HFPoint(&(mst.lastLButtonPoint))) {
-			return false;
-		} 
-		return true;
-	}
-	case CHOOSEN:
-	case CHOOSEIMG:
-	case MMOUSEMOVE:
-	{
-		return true;
-	}
-	case KZDRAW:
-		switch (mst.kztype) {
-		case DRAWCX:
-			return true;
-		}
-	default:
-		return true;
-	}
-}
-
 void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 	mst.lastType = mst.type;
 	mst.type = type;
 	mst.preType.push(type);
 }
 
+DrawType getType(MyDrawState& mst) {
+	return mst.type;
+}
+
+void ClearStateP(MyDrawState& mst) {
+	mst.lastLButtonDown = INITPOINT;
+	mst.lastLButtonUp = INITPOINT;
+	mst.lastMMouseBDown = INITPOINT;
+	mst.lastMMouseBUp = INITPOINT;
+	mst.lastMouseP = INITPOINT;
+}
+
 void RestoreFormLastType(MyDrawState& mst) {
 	if (mst.type == MMOUSEMOVE) {
-		mst.lastLButtonPoint = INITPOINT;
+		ClearStateP(mst);
 		mst.type = mst.lastType;
 		mst.preType.pop();
 	}
@@ -153,14 +152,9 @@ void RestoreFormLastType(MyDrawState& mst) {
 void InitMyDrawState(MyDrawState& mst) {
 	mst.type = CHOOSEIMG;
 	mst.lastType = CHOOSEIMG;
-	mst.lastLButtonPoint = INITPOINT;
-	mst.lastMMousemovePoint = INITPOINT;
+	ClearStateP(mst);
 	mst.go = setTypeWithLastType;   // 初始化函数指针
 	mst.back = RestoreFormLastType; // 初始化函数指针
-}
-
-DrawType getType(MyDrawState& mst) {
-	return mst.type;
 }
 
 void setType(MyDrawState& mst, DrawType type) {
@@ -174,7 +168,7 @@ void setType(MyDrawState& mst, DrawType type) {
 	case DRAWFMULTI:
 	case DRAWCURVE:
 	case DRAWBCURVE:
-		mst.lastLButtonPoint = INITPOINT;
+		ClearStateP(mst);
 		break;
 	default:
 		break;
@@ -184,7 +178,7 @@ void setType(MyDrawState& mst, DrawType type) {
 void setKZType(MyDrawState& mst, KZDrawType type) {
 	mst.type = KZDRAW;
 	mst.kztype = type;
-	mst.lastLButtonPoint = INITPOINT;
+	ClearStateP(mst);
 }
 
 void EndKZType(MyDrawState& mst) {
@@ -357,6 +351,28 @@ typedef struct DrawingInfo {
 void InitDrawing(DrawingInfo *di) {
 	di->info.type = NONE;
 	di->lastRem = { ILLEGELMYPOINT, ILLEGELMYPOINT };
+}
+
+void ClearDrawing(DrawingInfo* di) {
+	di->lastRem = INITPOINT;
+	switch (di->info.type) {
+	case LINE:
+		di->info.line.start = INITMYPOINT;
+		break;
+	case CIRCLE:
+		di->info.circle.center = INITMYPOINT;
+		break;
+	case RECTANGLE:
+		di->info.rectangle.start = INITMYPOINT;
+		break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+		// 清理空间
+		ClearMultipoint(&(di->info.multipoint));
+		break;
+	}
 }
 
 void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {

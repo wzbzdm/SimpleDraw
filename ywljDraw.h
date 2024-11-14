@@ -5,7 +5,6 @@
 #include "drawAny.h"
 
 void LineFirstPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	MyPoint start;
 	PointToCoordinate(coordinate, point, start.x, start.y);
 	drawing.info.line.start = start;
@@ -21,11 +20,9 @@ void LineNextPoint(POINT point) {
 	DrawInfo line ;
 	InitDrawInfo(&drawing, &line);
 	AddDrawInfoToStoreImg(&allImg, line);
-	mst.lastLButtonPoint = INITPOINT;
 }
 
 void CircleFirstPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	MyPoint center;
 	PointToCoordinate(coordinate, point, center.x, center.y);
 	drawing.info.circle.center = center;
@@ -41,11 +38,9 @@ void CircleNextPoint(POINT point) {
 	DrawInfo circle;
 	InitDrawInfo(&drawing, &circle);
 	AddDrawInfoToStoreImg(&allImg, circle);
-	mst.lastLButtonPoint = INITPOINT;
 }
 
 void RectFirstPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	MyPoint start;
 	PointToCoordinate(coordinate, point, start.x, start.y);
 	drawing.info.rectangle.start = start;
@@ -61,11 +56,9 @@ void RectNextPoint(POINT point) {
 	DrawInfo rect;
 	InitDrawInfo(&drawing, &rect);
 	AddDrawInfoToStoreImg(&allImg, rect);
-	mst.lastLButtonPoint = INITPOINT;
 }
 
 void MultiPFirstPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	// 初始化 mst.
 	InitMultipoint(&(drawing.info.multipoint));
 	MyPoint fPoint;
@@ -74,7 +67,6 @@ void MultiPFirstPoint(POINT point) {
 }
 
 void MultiPNextPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	MyPoint nextPoint;
 	PointToCoordinate(coordinate, point, nextPoint.x, nextPoint.y);
 	AddPointToMultipoint(&(drawing.info.multipoint), nextPoint);
@@ -84,13 +76,12 @@ void MultiPDone() {
 	drawing.info.proper = customProperty;
 	DrawInfo mline;
 	InitDrawInfo(&drawing, &mline);
+	ClearDrawing(&drawing);
 	AddDrawInfoToStoreImg(&allImg, mline);
 	ClearMultipoint(&(drawing.info.multipoint));
-	mst.lastLButtonPoint = INITPOINT;
 }
 
 void BCurveFirstPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	// 初始化 mst.
 	InitMultipoint(&(drawing.info.multipoint));
 	MyPoint fPoint;
@@ -99,7 +90,6 @@ void BCurveFirstPoint(POINT point) {
 }
 
 void BCurveNextPoint(POINT point) {
-	mst.lastLButtonPoint = point;
 	MyPoint nextPoint;
 	PointToCoordinate(coordinate, point, nextPoint.x, nextPoint.y);
 	AddPointToMultipoint(&(drawing.info.multipoint), nextPoint);
@@ -109,7 +99,7 @@ void BCurveDone() {
 	drawing.info.proper = customProperty;
 	DrawInfo bcurve;
 	InitDrawInfo(&drawing, &bcurve);
+	ClearDrawing(&drawing);
 	AddDrawInfoToStoreImg(&allImg, bcurve);
 	ClearMultipoint(&(drawing.info.multipoint));
-	mst.lastLButtonPoint = INITPOINT;
 }
