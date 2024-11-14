@@ -83,7 +83,9 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
-	bool draw;
+	bool draw;				// 绘图中
+	bool mmove;				// mmove
+	bool chosen;			// 选中状态还是非选中
 	DrawType type;
 	DrawType lastType;
 	std::stack<DrawType> preType;
@@ -126,6 +128,10 @@ bool InDraw(const MyDrawState& mst) {
 	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
 }
 
+bool InState(const MyDrawState& mst, DrawType type) {
+	return mst.type == type;
+}
+
 void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 	mst.lastType = mst.type;
 	mst.type = type;
@@ -153,6 +159,8 @@ void RestoreFormLastType(MyDrawState& mst) {
 }
 
 void InitMyDrawState(MyDrawState& mst) {
+	mst.draw = false;
+	mst.mmove = false;;
 	mst.type = CHOOSEIMG;
 	mst.lastType = CHOOSEIMG;
 	ClearStateP(mst);
@@ -316,7 +324,7 @@ POINT mapCoordinate(Coordinate& coor, double x, double y) {
 }
 
 // 将画布上的点映射到坐标系上
-void PointToCoordinate(const Coordinate& coor, POINT& pt, double& x, double& y) {
+void PointToCoordinate(const Coordinate& coor, const POINT& pt, double& x, double& y) {
 	x = (pt.x - coor.center.x) * coor.radius;
 	y = (coor.center.y - pt.y) * coor.radius;
 }
@@ -411,29 +419,47 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 	}
 }
 
+#define HELPXLINERADIUS			1.2
+
 typedef struct CSDrawInfo {
 	int index;
 	DrawInfo choose;
+	DrawInfoRect rect;
 } CSDrawInfo;
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
 	csdraw.index = -1;
 }
 
+void ClearCSDrawInfo(CSDrawInfo& csdraw) {
+	if (csdraw.index != -1) {
+		ClearDrawInfo(&(csdraw.choose));
+		csdraw.index = -1;
+	}
+}
+
+void CalcCSDrawRect(CSDrawInfo& csdraw) {
+	csdraw.rect = INITDRAWINFORECT;
+	GetDrawInfoRect(&(csdraw.choose), &(csdraw.rect));
+	MapDrawInfoRect(&(csdraw.rect), HELPXLINERADIUS);
+}
+
 void PopStoreImgToCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
 	CopyDrawInfoFromImg(&imgs, &(csdraw.choose), csdraw.index);
 	RemoveDrawInfoFromStoreImg(&imgs, csdraw.index);
+	CalcCSDrawRect(csdraw);
 }
 
 void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
 	SetDrawInfoToStoreImg(&imgs, &(csdraw.choose), csdraw.index);
+	ClearCSDrawInfo(csdraw);
 }
 
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
 WindowState wstate = { 800, 650, 45 };
-MyDrawState mst = { CHOOSEIMG, CHOOSEIMG };		// 默认状态
+MyDrawState mst;		// 默认状态
 Coordinate coordinate;							// 坐标系
 StoreImg allImg;								// 存储所有的图形
 DrawingInfo drawing;							// 当前正在绘制的图形

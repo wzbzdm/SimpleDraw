@@ -80,6 +80,12 @@ extern "C" {
 		return (gctype)((gc & PADTYPEMASK) | type);
 	}
 
+// 绘图方式为系统API
+#define DEFAULTLINEWID		2				// 线宽为2
+#define DEFAULTLINECOR		0				// 黑色
+#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
+#define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
+
 	// 图元属性
 	typedef struct DrawUnitProperty {
 		unsigned int color;
@@ -87,6 +93,13 @@ extern "C" {
 		int width;
 		gctype type;	// 绘制方式
 	} DrawUnitProperty;
+
+	void InitDrawUnitPro(DrawUnitProperty* pro) {
+		pro->bgcolor = DEFAULTPADCOR;
+		pro->color = DEFAULTLINECOR;
+		pro->width = DEFAULTLINEWID;
+		pro->type = DEFAULTTYPE;
+	}
 
 	void SetColorWithColorRef(DrawUnitProperty *pro, COLORREF r) {
 		pro->color = r;
@@ -103,12 +116,6 @@ extern "C" {
 	void SetType(DrawUnitProperty* pro, gctype t) {
 		pro->type = t;
 	}
-
-// 绘图方式为系统API
-#define DEFAULTLINEWID		2				// 线宽为2
-#define DEFAULTLINECOR		0				// 黑色
-#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
-#define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
 
 	// 图元类型
 	typedef enum ImgType {
@@ -531,6 +538,167 @@ extern "C" {
 		store->maxNum = MAX_IMG_NUM;
 	}
 
+	// TODO: 为什么C语言也支持引用
+	typedef struct DrawInfoRect {
+		double minX;
+		double minY;
+		double maxX;
+		double maxY;
+	} DrawInfoRect;
+
+#define INITDRAWINFORECT    { DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX  }
+
+	 void GetLineRect(const MyLine* line, DrawInfoRect* rect) {
+		if (line->start.x < line->end.x) {
+			if (line->start.x < rect->minX)
+			{
+				rect->minX = line->start.x;
+			}
+			if (line->end.x > rect->maxX)
+			{
+				rect->maxX = line->end.x;
+			}
+		}
+		else {
+			if (line->end.x < rect->minX)
+			{
+				rect->minX = line->end.x;
+			}
+			if (line->start.x > rect->maxX) {
+				rect->maxX = line->start.x;
+			}
+		}
+
+		if (line->start.y < line->end.y) {
+			if (line->start.y < rect->minY) {
+				rect->minY = line->start.y;
+			}
+			if (line->end.y > rect->maxY) {
+				rect->maxY = line->end.y;
+			}
+		}
+		else {
+			if (line->end.y < rect->minY) {
+				rect->minY = line->end.y;
+			}
+			if (line->start.y > rect->maxY)
+			{
+				rect->maxY = line->start.y;
+			}
+		}
+	}
+
+	void GetRectangleRect(const MyRectangle* rectangle, DrawInfoRect* rect) {
+		if (rectangle->start.x < rectangle->end.x) {
+			if (rectangle->start.x < rect->minX)
+			{
+				rect->minX = rectangle->start.x;
+			}
+			if (rectangle->end.x > rect->maxX)
+			{
+				rect->maxX = rectangle->end.x;
+			}
+			else {
+				int a = 1;
+			}
+		}
+		else {
+			if (rectangle->end.x < rect->minX)
+			{
+				rect->minX = rectangle->end.x;
+			}
+			if (rectangle->start.x > rect->maxX)
+			{
+				rect->maxX = rectangle->start.x;
+			}
+		}
+
+		if (rectangle->start.y < rectangle->end.y) {
+			if (rectangle->start.y < rect->minY)
+			{
+				rect->minY = rectangle->start.y;
+			}
+			if (rectangle->end.y > rect->maxY)
+			{
+				rect->maxY = rectangle->end.y;
+			}
+		}
+		else {
+			if (rectangle->end.y < rect->minY) {
+				rect->minY = rectangle->end.y;
+			}
+			if (rectangle->start.y > rect->maxY) {
+				rect->maxY = rectangle->start.y;
+			}
+		}
+	}
+
+	void GetCircleRect(const MyCircle* circle, DrawInfoRect* rect) {
+		if (circle->center.x - circle->radius < rect->minX) rect->minX = circle->center.x - circle->radius;
+		if (circle->center.y - circle->radius < rect->minY) rect->minY = circle->center.y - circle->radius;
+		if (circle->center.x + circle->radius > rect->maxX) rect->maxX = circle->center.x + circle->radius;
+		if (circle->center.y + circle->radius > rect->maxY) rect->maxY = circle->center.y + circle->radius;
+	}
+
+	void GetMultipointRect(const MyMultiPoint* multipoint, DrawInfoRect* rect) {
+		for (int i = 0; i < multipoint->endNum; i++) {
+			if (multipoint->points[i].x == ILLEGELMYPOINT || multipoint->points[i].y == ILLEGELMYPOINT) continue;
+			if (multipoint->points[i].x < rect->minX) rect->minX = multipoint->points[i].x;
+			if (multipoint->points[i].y < rect->minY) rect->minY = multipoint->points[i].y;
+			if (multipoint->points[i].x > rect->maxX) rect->maxX = multipoint->points[i].x;
+			if (multipoint->points[i].y > rect->maxY) rect->maxY = multipoint->points[i].y;
+		}
+	}
+
+	void GetDrawInfoRect(const DrawInfo* info, DrawInfoRect *rect) {
+		switch (info->type) {
+			// MyLine和MyRectangle结构相同
+		case RECTANGLE:
+		{
+			GetRectangleRect(&(info->rectangle), rect);
+			break;
+		}
+		case LINE:
+		{
+			GetLineRect(&(info->line), rect);
+			break;
+		}
+		case CIRCLE:
+		{
+			GetCircleRect(&(info->circle), rect);
+			break;
+		}
+		case CURVE:
+		case BCURVE:
+		case FMULTILINE:
+		case MULTILINE:
+		{
+			GetMultipointRect(&(info->multipoint), rect);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	void LargestRect(DrawInfoRect* calc, const DrawInfoRect* another) {
+		calc->minX = min(calc->minX, another->minX);
+		calc->minY = min(calc->minY, another->minY);
+		calc->maxX = max(calc->maxX, another->maxX);
+		calc->maxY = max(calc->maxY, another->maxY);
+	}
+
+	// 将值从中心按照倍率缩放
+	void MapDrawInfoRect(DrawInfoRect* calc, double radius) {
+		double midX = (calc->minX + calc->maxX) / 2;
+		double midY = (calc->minY + calc->maxY) / 2;
+		calc->minX = midX + (calc->minX - midX) * radius;
+		calc->minY = midY + (calc->minY - midY) * radius;
+		calc->maxX = midX + (calc->maxX - midX) * radius;
+		calc->maxY = midY + (calc->maxY - midY) * radius;
+	}
+
+	///////////////////////////////////////////////// 文件处理
 	typedef unsigned char Byte;
 
 	void IntToByte(int value, Byte** buffer, int* size) {

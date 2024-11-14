@@ -4,6 +4,7 @@
 #include "drawinfo.h"
 #include "drawAny.h"
 #include "windowState.h"
+#include "calculateImg.h"
 
 using namespace Gdiplus;
 
@@ -436,8 +437,25 @@ void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pr
 	DeleteObject(hNullBrush);
 }
 
+void DrawDrawInfoRect(HDC hdc, const DrawInfoRect& rect) {
+	MyPoint mp1 = { rect.minX, rect.minY };
+	MyPoint mp2 = { rect.minX, rect.maxY };
+	MyPoint mp3 = { rect.maxX, rect.maxY };
+	MyPoint mp4 = { rect.maxX, rect.minY };
+	POINT p1 = mapCoordinate(coordinate, mp1.x, mp1.y);
+	POINT p2 = mapCoordinate(coordinate, mp2.x, mp2.y);
+	POINT p3 = mapCoordinate(coordinate, mp3.x, mp3.y);
+	POINT p4 = mapCoordinate(coordinate, mp4.x, mp4.y);
+	DrawXLine(hdc, p1, p2, HELPLINECORLOR, 1);
+	DrawXLine(hdc, p2, p3, HELPLINECORLOR, 1);
+	DrawXLine(hdc, p3, p4, HELPLINECORLOR, 1);
+	DrawXLine(hdc, p4, p1, HELPLINECORLOR, 1);
+}
+
 // 绘制选中图形的辅助线
 void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
+	if (csdraw->index == -1) return;
+	DrawDrawInfoRect(hdc, csdraw->rect);
 	switch (csdraw->choose.type) {
 	case LINE:
 		break;
@@ -460,6 +478,7 @@ void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
 }
 
 void drawCSDraw(HDC hdc, CSDrawInfo* csdraw, const DrawUnitProperty* pro) {
+	if (csdraw->index == -1) return;
 	DrawInfo choose = csdraw->choose;
 	choose.proper = *pro;
 	drawDrawInfo(hdc, &choose);
@@ -587,6 +606,26 @@ void ShowPointInWindow(HDC hdc, POINT p) {
 
 	// 删除自定义字体对象
 	DeleteObject(hFont);
+}
+
+void ShowAllCalPoint(HDC hdc, Coordinate coor) {
+	HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+	HBRUSH hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
+	SelectObject(hdc, hPen);
+	SelectObject(hdc, hBlackBrush);
+	// 在预览窗口显示所有计算点
+	for (int i = 0; i < CalculatePoints.size(); i++) {
+		MyPoint mp = CalculatePoints[i];
+		POINT pt = mapCoordinate(coor, mp.x, mp.y);
+		// 画圆心
+		SelectObject(hdc, hPen);
+		SelectObject(hdc, hBlackBrush);
+		Ellipse(hdc, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
+		// 显示坐标
+		ShowPointInWindow(hdc, mp);
+	}
+	DeleteObject(hPen);
+	DeleteObject(hBlackBrush);
 }
 
 void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
@@ -842,7 +881,7 @@ FileOpenAndSave OpenGTXFile(HWND hWnd) {
 	}
 }
 
-void RefreshRadius(WPARAM wParam) {
+double GetRadiusFromWParam(WPARAM wParam) {
 	// 放大时,坐标系radius减小，缩小时，坐标系radius增大
 	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 
@@ -850,7 +889,12 @@ void RefreshRadius(WPARAM wParam) {
 	double scaleFactor = RADIUSCHANGESPEED;
 
 	// 使用指数缩放，确保 radius 始终大于0
-	coordinate.radius *= exp(-scaleFactor * zDelta);
+	return exp(scaleFactor * zDelta);
+}
+
+void RefreshRadius(WPARAM wParam) {
+	// 使用指数缩放，确保 radius 始终大于0
+	coordinate.radius *= 1.0 / GetRadiusFromWParam(wParam);
 
 	// 防止缩放比例过小或过大
 	if (coordinate.radius < MINRADIUS) {
@@ -874,6 +918,26 @@ bool InDraw() {
 	return mst.draw;
 }
 
+void StartMMove() {
+	mst.mmove = true;
+}
+
+bool InMMove() {
+	return mst.mmove;
+}
+
+void EndMMove() {
+	mst.mmove = false;
+}
+
+void SetChosen(bool p) {
+	mst.chosen = p;
+}
+
+bool IsChosen() {
+	return mst.chosen;
+}
+
 bool OnlyOnePoint() {
 	return drawing.info.multipoint.numPoints == 1;
 }
@@ -885,4 +949,27 @@ bool BCurvePointCannotDraw() {
 void EndDraw() {
 	mst.draw = false;
 	ClearStateP(mst);	// TODO: 是否可以不清除
+}
+
+bool PointInCSDraw(const POINT& point) {
+	MyPoint mp;
+	PointToCoordinate(coordinate, point, mp.x, mp.y);
+	return MyPointInCSDrawInfo(csdraw.rect, mp);
+}
+
+bool MyPointCSDraw(const MyPoint& mp) {
+	if (csdraw.index == -1) return false;
+	return MyPointInCSDrawInfo(csdraw.rect, mp);
+}
+
+void MoveCSDrawInPoint(int x, int y) {
+	double dx = x * coordinate.radius;
+	double dy = - y * coordinate.radius;
+	MoveDrawInfo(csdraw.choose, dx, dy);
+	CalcCSDrawRect(csdraw);
+}
+
+void ZoomCSDrawMyPoint(const MyPoint& center, double scale) {
+	ZoomDrawInfo(csdraw.choose, center, scale);
+	CalcCSDrawRect(csdraw);
 }

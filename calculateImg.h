@@ -439,104 +439,20 @@ int ChooseImg(const StoreImg& store, const Coordinate& coor, POINT p) {
 多义线等选中区域为每条线周围所有矩形区域的和
 */
 // TODO: 
-bool PointInDrawInfo(const DrawInfo& info, const MyPoint& mp) {
-    return false;
+bool MyPointInCSDrawInfo(const DrawInfoRect& rect, const MyPoint& mp) {
+    return mp.x < rect.maxX && mp.x > rect.minX && mp.y < rect.maxY && mp.y > rect.minY;
 }
 
 bool ChooseCSdraw(const CSDrawInfo& csdraw, const Coordinate& coor, POINT p) {
-    int count = -1;
-    double minDistance = MAXWTOCHHOSE * coor.radius;
+    if (csdraw.index == -1) return false;
     MyPoint mp;
     PointToCoordinate(coor, p, mp.x, mp.y);
-    return PointInDrawInfo(csdraw.choose, mp);
-}
-
-typedef struct DrawInfoRect {
-    double minX;
-    double minY;
-    double maxX;
-    double maxY;
-} DrawInfoRect;
-
-#define INITDRAWINFORECT    { DBL_MAX, DBL_MAX, DBL_MIN, DBL_MIN  }
-
-const DrawInfoRect& GetLineRect(const MyLine& line) {
-	static DrawInfoRect rect;
-	rect = INITDRAWINFORECT;
-    if (line.start.x < line.end.x) {
-        if (line.start.x < rect.minX) rect.minX = line.start.x;
-        if (line.end.x > rect.maxX) rect.maxX = line.end.x;
-    }
-    else {
-        if (line.end.x < rect.minX) rect.minX = line.end.x;
-        if (line.start.x > rect.maxX) rect.maxX = line.start.x;
-    }
-
-    if (line.start.y < line.end.y) {
-        if (line.start.y < rect.minY) rect.minY = line.start.y;
-        if (line.end.y > rect.maxY) rect.maxY = line.end.y;
-    }
-    else {
-        if (line.end.y < rect.minY) rect.minY = line.end.y;
-        if (line.start.y > rect.maxY) rect.maxY = line.start.y;
-    }
-
-	return rect;
-}
-
-const DrawInfoRect& GetRectangleRect(const MyRectangle& rectangle) {
-    static DrawInfoRect rect;
-    rect = INITDRAWINFORECT;
-    if (rectangle.start.x < rectangle.end.x) {
-        if (rectangle.start.x < rect.minX) rect.minX = rectangle.start.x;
-        if (rectangle.end.x > rect.maxX) rect.maxX = rectangle.end.x;
-    }
-    else {
-        if (rectangle.end.x < rect.minX) rect.minX = rectangle.end.x;
-        if (rectangle.start.x > rect.maxX) rect.maxX = rectangle.start.x;
-    }
-
-    if (rectangle.start.y < rectangle.end.y) {
-        if (rectangle.start.y < rect.minY) rect.minY = rectangle.start.y;
-        if (rectangle.end.y > rect.maxY) rect.maxY = rectangle.end.y;
-    }
-    else {
-        if (rectangle.end.y < rect.minY) rect.minY = rectangle.end.y;
-        if (rectangle.start.y > rect.maxY) rect.maxY = rectangle.start.y;
-    }
-
-    return rect;
-}
-
-const DrawInfoRect& GetCircleRect(const MyCircle& circle) {
-	static DrawInfoRect rect;
-	rect = INITDRAWINFORECT;
-	if (circle.center.x - circle.radius < rect.minX) rect.minX = circle.center.x - circle.radius;
-	if (circle.center.y - circle.radius < rect.minY) rect.minY = circle.center.y - circle.radius;
-	if (circle.center.x + circle.radius > rect.maxX) rect.maxX = circle.center.x + circle.radius;
-	if (circle.center.y + circle.radius > rect.maxY) rect.maxY = circle.center.y + circle.radius;
-
-	return rect;
-}
-
-const DrawInfoRect& GetMultipointRect(const MyMultiPoint& multipoint) {
-	static DrawInfoRect rect;
-	rect = INITDRAWINFORECT;
-	for (int i = 0; i < multipoint.endNum; i++) {
-		if (multipoint.points[i].x == ILLEGELMYPOINT || multipoint.points[i].y == ILLEGELMYPOINT) continue;
-		if (multipoint.points[i].x < rect.minX) rect.minX = multipoint.points[i].x;
-		if (multipoint.points[i].y < rect.minY) rect.minY = multipoint.points[i].y;
-		if (multipoint.points[i].x > rect.maxX) rect.maxX = multipoint.points[i].x;
-		if (multipoint.points[i].y > rect.maxY) rect.maxY = multipoint.points[i].y;
-	}
-
-	return rect;
+    return MyPointInCSDrawInfo(csdraw.rect, mp);
 }
 
 // 使当前坐标系适应画布上的图像，方便观察
 void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 计算图像的最大最小坐标
-    double minX = DBL_MAX, minY = DBL_MAX, maxX = DBL_MIN, maxY = DBL_MIN;
     DrawInfoRect rect = INITDRAWINFORECT;
     // 若没有图像
     if (img.endNum == 0) {
@@ -546,38 +462,13 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
     for (int i = 0; i < img.endNum; i++) {
         DrawInfo item = img.img[i];
-        switch (item.type) {
-        // MyLine和MyRectangle结构相同
-        case RECTANGLE:
-        {
-            rect = GetRectangleRect(item.rectangle);
-            break;
-        }
-        case LINE:
-        {
-			rect = GetLineRect(item.line);
-            break;
-        }
-        case CIRCLE:
-        {
-			rect = GetCircleRect(item.circle);
-            break;
-        }
-        case CURVE:
-        case BCURVE:
-        case FMULTILINE:
-        case MULTILINE:
-        {
-			rect = GetMultipointRect(item.multipoint);
-            break;
-        }
-        default:
-            break;
-        }
+        DrawInfoRect nowrect;
+        GetDrawInfoRect(&item, &nowrect);
+		LargestRect(&rect, &nowrect);
     }
 
     // 处理无效坐标情况
-    if (rect.minX == DBL_MAX || rect.minY == DBL_MAX || rect.maxX == DBL_MIN || rect.maxY == DBL_MIN) {
+    if (rect.minX == DBL_MAX || rect.minY == DBL_MAX || rect.maxX == -DBL_MAX || rect.maxY == -DBL_MAX) {
         // 没有有效的图形，设置默认坐标
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
         SetCoordinate(coor, center, DEFAULTRADIUS); // 设置坐标系参数
@@ -617,24 +508,4 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
 
     // 当前应该在中点
     pt = mapCoordinate(coor, centerX, centerY);
-}
-
-void ShowAllCalPoint(HDC hdc, Coordinate coor) {
-    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-    HBRUSH hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
-    SelectObject(hdc, hPen);
-    SelectObject(hdc, hBlackBrush);
-    // 在预览窗口显示所有计算点
-    for (int i = 0; i < CalculatePoints.size(); i++) {
-        MyPoint mp = CalculatePoints[i];
-        POINT pt = mapCoordinate(coor, mp.x, mp.y);
-        // 画圆心
-        SelectObject(hdc, hPen);
-        SelectObject(hdc, hBlackBrush);
-        Ellipse(hdc, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
-        // 显示坐标
-        ShowPointInWindow(hdc, mp);
-    }
-    DeleteObject(hPen);
-    DeleteObject(hBlackBrush);
 }

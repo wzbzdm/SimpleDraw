@@ -2,7 +2,6 @@
 #include "framework.h"
 #include "SimpleDraw.h"
 #include "showRMenu.h"
-#include "calculateImg.h"
 #include "customSlider.h"
 #include "ywljDraw.h"
 
@@ -76,7 +75,9 @@ void				ClearContent(HDC hdc);
 void				FitCanvasCoordinate();
 void 				LoadMyCustomCuser();
 void				CalAndShowPoint();
+void				ClearCSState();
 void				Cleanup();
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -91,9 +92,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	LoadStringW(hInstance, IDC_SIMPLEDRAW, szWindowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 
-	InitMyDrawState(mst);	// 初始化绘图状态
-	InitDrawing(&drawing);	// 初始化drawing状态
-	customProperty = DEFAULTDRAWPROPERTY; // 初始化自定义绘图属性
+	InitMyDrawState(mst);				// 初始化绘图状态
+	InitDrawing(&drawing);				// 初始化drawing状态
+	InitCSDrawInfo(csdraw);				// 初始化csdraw状态
+	InitDrawUnitPro(&customProperty);	 // 初始化自定义绘图属性
 
 	// 初始化 GDI+
 	InitGDIPlus();
@@ -927,6 +929,12 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 		if (InDraw()) {
 			SendMessage(hCanvasWnd, WM_RBUTTONDOWN, NULL, (LPARAM)RBUTTOMDOWNCUSTOM);
 		}
+
+		if (InState(mst, CHOOSEN)) {
+			// 清除选中状态
+			ClearCSState();
+			NeedRedraw();
+		}
 		
 		break;
 	}
@@ -1133,6 +1141,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		break;
 		case CHOOSEN:
 		{
+			SetChosen(PointInCSDraw(point));
+			if (IsChosen()) break;
+
 			int index = GetChooseIndex(point);
 			if (index != csdraw.index) {
 				RestoreCSDraw(allImg, csdraw);
@@ -1140,16 +1151,16 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				if (index != -1) {
 					// 将图元从 allImg 中取出
 					PopStoreImgToCSDraw(allImg, csdraw);
-					// 重绘Fix, Preview
-					RedrawFixedContent(hCanvasWnd, hdcMemFixed);
-					RedrawCoSContent(hCanvasWnd, hdcMemCoS);
-					ClearContent(hdcMemPreview);
-					drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-					NeedRedraw();
 				}
 				else {
 					setType(mst, CHOOSEIMG);
 				}
+				// 重绘Fix, Preview
+				RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+				RedrawCoSContent(hCanvasWnd, hdcMemCoS);
+				ClearContent(hdcMemPreview);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+				NeedRedraw();
 			}
 		}
 		break;
@@ -1349,7 +1360,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			else {
 
 			}
-			
+			SetChosen(false);
 			break;
 		}
 		case DRAWLINE:
@@ -1629,8 +1640,18 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEN:
 		{
-			// 
-
+			// 获得移动距离
+			int x = point.x - mst.lastMouseP.x;
+			int y = point.y - mst.lastMouseP.y;
+			if (IsChosen()) {
+				ClearContent(hdcMemPreview);
+				// 更新图元位置
+				MoveCSDrawInPoint(x, y);
+				RedrawCoSContent(hCWnd, hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+				NeedRedraw();
+			}
+			
 			break;
 		}
 		case MMOUSEMOVE:
@@ -1639,14 +1660,21 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 获得移动距离
 			int x = point.x - mst.lastMouseP.x;
 			int y = point.y - mst.lastMouseP.y;
-			// 更新上次鼠标移动的位置
-			mst.lastMouseP = point;
-			// 更新坐标系中心
-			coordinate.center.x += x;
-			coordinate.center.y += y;
-			RedrawFixedContent(hCWnd, hdcMemFixed);
-			RedrawCoSContent(hCWnd, hdcMemCoS);
-			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			if (IsChosen()) {
+				// 更新图元位置
+				MoveCSDrawInPoint(x, y);
+				RedrawCoSContent(hCWnd, hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			}
+			else {
+				// 更新坐标系中心
+				coordinate.center.x += x;
+				coordinate.center.y += y;
+				RedrawFixedContent(hCWnd, hdcMemFixed);
+				RedrawCoSContent(hCWnd, hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			}
+			
 			// 触发重绘
 			NeedRedraw();
 			break;
@@ -1820,9 +1848,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_MBUTTONDOWN:
 	{
 		// 获取鼠标点击的位置
+		StartMMove();
 		POINT point = getClientPos(hCWnd);
+		SetChosen(PointInCSDraw(point));
 		setTypeWithLastType(mst, MMOUSEMOVE);
-		mst.lastMMouseBDown = point;
 		ClearContent(hdcMemPreview);
 		MMouseDown(mst, point);
 
@@ -1833,15 +1862,29 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		// 重置状态
 		POINT point = getClientPos(hCWnd);
 		RestoreFormLastType(mst);
+		SetChosen(false);
 		MMouseUp(mst, point);
+		EndMMove();
 		break;
 	}
 	case WM_MOUSEWHEEL:
 	{
 		// 获取鼠标点击的位置
 		POINT point = getClientPos(hCWnd);
+
 		MyPoint mp;
 		PointToCoordinate(coordinate, point, mp.x, mp.y);
+
+		if (MyPointCSDraw(mp)) {
+			double radius = GetRadiusFromWParam(wParam);
+			ZoomCSDrawMyPoint(mp, radius);
+			RedrawCoSContent(hCWnd, hdcMemCoS);
+			ClearContent(hdcMemPreview);
+			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			NeedRedraw();
+			break;
+		}
+
 		// 鼠标位置状态栏
 		UpdateStatusBarCoordinates(mp.x, mp.y);
 
@@ -1969,4 +2012,11 @@ void LoadMyCustomCuser() {
 	moveCursor = LoadCursor(hInst, MAKEINTRESOURCE(IDC_MOVE));
 
 	return;
+}
+
+void ClearCSState() {
+	RestoreCSDraw(allImg, csdraw);
+	ClearContent(hdcMemPreview);
+	ClearContent(hdcMemCoS);
+	RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 }
