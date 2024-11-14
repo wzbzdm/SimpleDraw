@@ -1,6 +1,7 @@
 #pragma once
 
 #include "drawinfo.h"
+#include "windowState.h"
 #include <vector>
 #include <algorithm>
 #include <thread>
@@ -16,6 +17,14 @@ void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width);
 void FillCircle(HDC hdc, int xc, int yc, int r, int color, int width);
 void ScanlineFill(HDC hdc, POINT* polygon, int n, int color);
 void FenceFill(HDC hdc, POINT* points, int n, int color);
+
+void DrawPoint(HDC hdc, int x, int y, int size, COLORREF color) {
+	HBRUSH brush = CreateSolidBrush(color);  // 创建填充颜色
+	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, brush);
+	Ellipse(hdc, x - size, y - size, x + size, y + size);  // 绘制圆
+	SelectObject(hdc, oldBrush);
+	DeleteObject(brush);
+}
 
 int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	LOGBRUSH lb;
@@ -37,10 +46,10 @@ int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	return 0;
 }
 
-int DrawXLine(HDC hdc, POINT start, POINT end, int width) {
+int DrawXLine(HDC hdc, POINT start, POINT end, int color, int width) {
 	LOGBRUSH lb;
 	lb.lbStyle = BS_SOLID;
-	lb.lbColor = RGB(255, 0, 0); // 线条颜色
+	lb.lbColor = color; // 线条颜色
 	DWORD dashPattern[2] = { 10, 5 }; // 10个像素实线，5个像素空白
 	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, width, &lb, 2, dashPattern);
 	SelectObject(hdc, hPen);
@@ -100,6 +109,10 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
+}
+
+void DrawLineHelp(HDC hdc, const MyLine* line) {
+
 }
 
 int StoreLineTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
@@ -202,6 +215,10 @@ int DrawCircle(HDC hdc, POINT center, int r, const DrawUnitProperty* pro) {
 	return 0;
 }
 
+void DrawCircleHelp(HDC hdc, const MyCircle *circle) {
+
+}
+
 int StoreCircleTo(StoreImg* sti, MyPoint center, MyPoint rp, DrawUnitProperty pro) {
 	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
 	DrawInfo item;
@@ -230,6 +247,10 @@ int DrawRectangle(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) 
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
+}
+
+void DrawRectangleHelp(HDC hdc, const MyRectangle *rectangle) {
+
 }
 
 int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
@@ -274,6 +295,82 @@ int DrawFMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pr
 	}
 
 	return 0;
+}
+
+// 没有虚线版本
+void DrawMultiPointHelpNoL(HDC hdc, const MyMultiPoint* points) {
+	// 所有点
+	for (int i = 0; i < points->endNum; i++) {
+		MyPoint mp = points->points[i];
+		if (HFMyPoint(&mp)) {
+			POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+			DrawPoint(hdc, p.x, p.y, 3, HELPPOINTCOLOR);
+		}
+	}
+}
+
+// 画所有虚线
+void DrawMultiPointHelpXline(HDC hdc, const MyMultiPoint* points, bool f) {
+	POINT firstp;
+	POINT endp;
+	POINT lastp;
+	int lasti = 0;
+	for (int i = 0; i < points->endNum; i++) {
+		lasti = i;
+		if (HFMyPoint(&(points->points[i]))) break;
+	}
+	lastp = mapCoordinate(coordinate, points->points[lasti].x, points->points[lasti].y);
+	firstp = lastp;
+
+	for (int i = lasti + 1; i < points->endNum - 1; i++) {
+		MyPoint mp = points->points[i];
+		if (HFMyPoint(&mp)) {
+			POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+			DrawXLine(hdc, lastp, p, HELPLINECORLOR, 1);
+			lastp = p;
+			endp = p;
+		}
+	}
+
+	if (f) {
+		DrawXLine(hdc, firstp, lastp, HELPLINECORLOR, 1);
+	}
+}
+
+// 有虚线版本
+void DrawMultiPointHelp(HDC hdc, const MyMultiPoint* points, bool f) {
+	DrawMultiPointHelpNoL(hdc, points);
+	// 画虚线
+	DrawMultiPointHelpXline(hdc, points, f);
+}
+
+void DrawBCurveHelp(HDC hdc, POINT* points, int degree, int n) {
+	// 画虚线
+	for (int i = 0; i < n - 1; i++) {
+		DrawXLine(hdc, points[i], points[i + 1], HELPLINECORLOR, 1);
+	}
+
+	// 画隔一个点的虚线
+	for (int i = 0; i < n - 2; i++) {
+		DrawXLine(hdc, points[i], points[i + 2], HELPLINECORLOR, 1);
+	}
+
+	// 隔一个的线的中点与两个点之间的点相连
+	POINT mid;
+	POINT third;
+	int r = degree;
+	for (int i = 0; i < n - 2; i++) {
+		mid.x = (points[i].x + points[i + 2].x) / 2;
+		mid.y = (points[i].y + points[i + 2].y) / 2;
+		DrawXLine(hdc, mid, points[i + 1], HELPLINECORLOR, 1);
+
+		// 将中点和其三分一处标红
+		third.x = (points[i + 1].x * (r - 1) + mid.x) / r;
+		third.y = (points[i + 1].y * (r - 1) + mid.y) / r;
+
+		DrawPoint(hdc, mid.x, mid.y, 3, HELPPOINTCOLOR);
+		DrawPoint(hdc, third.x, third.y, 3, HELPPOINTCOLOR);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////// 实验要求
@@ -508,14 +605,6 @@ void BresenhamCircle(HDC hdc, int xc, int yc, int r, int color) {
 // 绘制像素点的函数
 void SetPixelPoint(HDC hdc, int x, int y, int color) {
 	SetPixel(hdc, x, y, color);
-}
-
-void DrawPoint(HDC hdc, int x, int y, int size, COLORREF color) {
-	HBRUSH brush = CreateSolidBrush(color);  // 创建填充颜色
-	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, brush);
-	Ellipse(hdc, x - size, y - size, x + size, y + size);  // 绘制圆
-	SelectObject(hdc, oldBrush);
-	DeleteObject(brush);
 }
 
 // 扫描线填充函数

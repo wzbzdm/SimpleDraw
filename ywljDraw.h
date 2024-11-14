@@ -103,3 +103,13 @@ void BCurveDone() {
 	AddDrawInfoToStoreImg(&allImg, bcurve);
 	ClearMultipoint(&(drawing.info.multipoint));
 }
+
+int GetChooseIndex(POINT point) {
+	// 若还在选中区域，优先已选中的图元
+	if (ChooseCSdraw(csdraw, coordinate, point)) {
+		return csdraw.index;
+	}
+	// 其他情况选择最近的图元
+	int index = ChooseImg(allImg, coordinate, point);
+	return index;
+}

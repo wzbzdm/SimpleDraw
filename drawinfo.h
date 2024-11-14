@@ -247,6 +247,7 @@ extern "C" {
 
 	void InitFromMultipoint(MyMultiPoint* multipoint, MyMultiPoint* another) {
 		if (multipoint == another) return;
+		if (!another) return;
 		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
 		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));
 		multipoint->numPoints = another->numPoints;
@@ -460,9 +461,56 @@ extern "C" {
 		store->num++;
 	}
 
+	void CopyDrawInfoFromImg(StoreImg* store, DrawInfo* info, int index) {
+		DrawInfo *cs = &(store->img[index]);
+		info->type = cs->type;
+		info->proper = cs->proper;
+		switch (cs->type) {
+		case LINE:
+			info->line = cs->line;
+			break;
+		case CIRCLE:
+			info->circle = cs->circle;
+			break;
+		case RECTANGLE:
+			info->rectangle = cs->rectangle;
+			break;
+		case CURVE:
+		case BCURVE:
+		case MULTILINE:
+		case FMULTILINE:
+			InitFromMultipoint(&(info->multipoint), &(cs->multipoint));
+		}
+	}
+
 	void RemoveDrawInfoFromStoreImg(StoreImg* store, int index) {
-		if (store->img->type != NONE) {
-			store->img->type = NONE;
+		DrawInfo* cs = &(store->img[index]);
+		if (cs->type != NONE) {
+			cs->type = NONE;
+			ClearDrawInfo(cs);
+		}
+	}
+
+	void SetDrawInfoToStoreImg(StoreImg* store, DrawInfo* info, int index) {
+		if (index >= store->endNum) return;
+		DrawInfo* cs = &(store->img[index]);
+		cs->type = info->type;
+		cs->proper = info->proper;
+		switch (info->type) {
+		case LINE:
+			cs->line = info->line;
+			break;
+		case CIRCLE:
+			cs->circle = info->circle;
+			break;
+		case RECTANGLE:
+			cs->rectangle = info->rectangle;
+			break;
+		case CURVE:
+		case BCURVE:
+		case MULTILINE:
+		case FMULTILINE:
+			InitFromMultipoint(&(cs->multipoint), &(info->multipoint));
 		}
 	}
 

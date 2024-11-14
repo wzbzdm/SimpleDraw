@@ -377,46 +377,52 @@ void RotateDrawInfo(DrawInfo& info, const MyPoint& center, double angle) {
 	}
 }
 
+double GetDrawInfoDistance(DrawInfo& item, const MyPoint& mp) {
+    double d = DBL_MAX;
+    switch (item.type) {
+    case LINE:
+    {
+        d = DistanceToLine(mp, item.line);
+        break;
+    }
+    case CIRCLE:
+    {
+        d = GetDPointToCircle(mp, item.circle);
+        break;
+    }
+    case RECTANGLE:
+    {
+        d = GetMinDPointToRectangle(mp, item.rectangle);
+        break;
+    }
+    case CURVE:
+    case BCURVE:
+    case MULTILINE:
+    {
+        d = GetMinDPointToMultipoint(mp, &(item.multipoint));
+        break;
+    }
+    case FMULTILINE:
+    {
+        d = GetMinDPointToFMultipoint(mp, &(item.multipoint));
+        break;
+    }
+    default:
+        break;
+    }
+
+    return d;
+}
+
 // 图形选择逻辑
-int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
+int ChooseImg(const StoreImg& store, const Coordinate& coor, POINT p) {
     int count = -1;
     double minDistance = MAXWTOCHHOSE * coor.radius;
     MyPoint mp;
     PointToCoordinate(coor, p, mp.x, mp.y);
     for (int i = 0; i < store.endNum; i++) {
         DrawInfo item = store.img[i];
-        double d;
-        switch (item.type) {
-        case LINE:
-        {
-            d = DistanceToLine(mp, item.line);
-            break;
-        }
-        case CIRCLE:
-        {
-            d = GetDPointToCircle(mp, item.circle);
-            break;
-        }
-        case RECTANGLE:
-        {
-            d = GetMinDPointToRectangle(mp, item.rectangle);
-            break;
-        }
-        case CURVE:
-        case BCURVE:
-        case MULTILINE:
-        {
-            d = GetMinDPointToMultipoint(mp, &(item.multipoint));
-            break;
-        }
-        case FMULTILINE:
-        {
-            d = GetMinDPointToFMultipoint(mp, &(item.multipoint));
-            break;
-        }
-        default:
-            break;
-        }
+        double d = GetDrawInfoDistance(item, mp);
 
         if (minDistance > d) {
             minDistance = d;
@@ -427,11 +433,111 @@ int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
     return count;
 }
 
+// 判断点是否在选中区域内
+/*
+线，圆，矩形的选中区域为矩形
+多义线等选中区域为每条线周围所有矩形区域的和
+*/
+// TODO: 
+bool PointInDrawInfo(const DrawInfo& info, const MyPoint& mp) {
+    return false;
+}
+
+bool ChooseCSdraw(const CSDrawInfo& csdraw, const Coordinate& coor, POINT p) {
+    int count = -1;
+    double minDistance = MAXWTOCHHOSE * coor.radius;
+    MyPoint mp;
+    PointToCoordinate(coor, p, mp.x, mp.y);
+    return PointInDrawInfo(csdraw.choose, mp);
+}
+
+typedef struct DrawInfoRect {
+    double minX;
+    double minY;
+    double maxX;
+    double maxY;
+} DrawInfoRect;
+
+#define INITDRAWINFORECT    { DBL_MAX, DBL_MAX, DBL_MIN, DBL_MIN  }
+
+const DrawInfoRect& GetLineRect(const MyLine& line) {
+	static DrawInfoRect rect;
+	rect = INITDRAWINFORECT;
+    if (line.start.x < line.end.x) {
+        if (line.start.x < rect.minX) rect.minX = line.start.x;
+        if (line.end.x > rect.maxX) rect.maxX = line.end.x;
+    }
+    else {
+        if (line.end.x < rect.minX) rect.minX = line.end.x;
+        if (line.start.x > rect.maxX) rect.maxX = line.start.x;
+    }
+
+    if (line.start.y < line.end.y) {
+        if (line.start.y < rect.minY) rect.minY = line.start.y;
+        if (line.end.y > rect.maxY) rect.maxY = line.end.y;
+    }
+    else {
+        if (line.end.y < rect.minY) rect.minY = line.end.y;
+        if (line.start.y > rect.maxY) rect.maxY = line.start.y;
+    }
+
+	return rect;
+}
+
+const DrawInfoRect& GetRectangleRect(const MyRectangle& rectangle) {
+    static DrawInfoRect rect;
+    rect = INITDRAWINFORECT;
+    if (rectangle.start.x < rectangle.end.x) {
+        if (rectangle.start.x < rect.minX) rect.minX = rectangle.start.x;
+        if (rectangle.end.x > rect.maxX) rect.maxX = rectangle.end.x;
+    }
+    else {
+        if (rectangle.end.x < rect.minX) rect.minX = rectangle.end.x;
+        if (rectangle.start.x > rect.maxX) rect.maxX = rectangle.start.x;
+    }
+
+    if (rectangle.start.y < rectangle.end.y) {
+        if (rectangle.start.y < rect.minY) rect.minY = rectangle.start.y;
+        if (rectangle.end.y > rect.maxY) rect.maxY = rectangle.end.y;
+    }
+    else {
+        if (rectangle.end.y < rect.minY) rect.minY = rectangle.end.y;
+        if (rectangle.start.y > rect.maxY) rect.maxY = rectangle.start.y;
+    }
+
+    return rect;
+}
+
+const DrawInfoRect& GetCircleRect(const MyCircle& circle) {
+	static DrawInfoRect rect;
+	rect = INITDRAWINFORECT;
+	if (circle.center.x - circle.radius < rect.minX) rect.minX = circle.center.x - circle.radius;
+	if (circle.center.y - circle.radius < rect.minY) rect.minY = circle.center.y - circle.radius;
+	if (circle.center.x + circle.radius > rect.maxX) rect.maxX = circle.center.x + circle.radius;
+	if (circle.center.y + circle.radius > rect.maxY) rect.maxY = circle.center.y + circle.radius;
+
+	return rect;
+}
+
+const DrawInfoRect& GetMultipointRect(const MyMultiPoint& multipoint) {
+	static DrawInfoRect rect;
+	rect = INITDRAWINFORECT;
+	for (int i = 0; i < multipoint.endNum; i++) {
+		if (multipoint.points[i].x == ILLEGELMYPOINT || multipoint.points[i].y == ILLEGELMYPOINT) continue;
+		if (multipoint.points[i].x < rect.minX) rect.minX = multipoint.points[i].x;
+		if (multipoint.points[i].y < rect.minY) rect.minY = multipoint.points[i].y;
+		if (multipoint.points[i].x > rect.maxX) rect.maxX = multipoint.points[i].x;
+		if (multipoint.points[i].y > rect.maxY) rect.maxY = multipoint.points[i].y;
+	}
+
+	return rect;
+}
+
 // 使当前坐标系适应画布上的图像，方便观察
 void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 计算图像的最大最小坐标
-    double minX = ILLEGELMYPOINT, minY = ILLEGELMYPOINT, maxX = DBL_MIN, maxY = DBL_MIN;
-
+    double minX = DBL_MAX, minY = DBL_MAX, maxX = DBL_MIN, maxY = DBL_MIN;
+    DrawInfoRect rect = INITDRAWINFORECT;
     // 若没有图像
     if (img.endNum == 0) {
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
@@ -443,34 +549,18 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
         switch (item.type) {
         // MyLine和MyRectangle结构相同
         case RECTANGLE:
+        {
+            rect = GetRectangleRect(item.rectangle);
+            break;
+        }
         case LINE:
         {
-            if (item.line.start.x < item.line.end.x) {
-                if (item.line.start.x < minX) minX = item.line.start.x;
-                if (item.line.end.x > maxX) maxX = item.line.end.x;
-            }
-            else {
-                if (item.line.end.x < minX) minX = item.line.end.x;
-                if (item.line.start.x > maxX) maxX = item.line.start.x;
-            }
-
-            if (item.line.start.y < item.line.end.y) {
-                if (item.line.start.y < minY) minY = item.line.start.y;
-                if (item.line.end.y > maxY) maxY = item.line.end.y;
-            }
-            else {
-                if (item.line.end.y < minY) minY = item.line.end.y;
-                if (item.line.start.y > maxY) maxY = item.line.start.y;
-            }
-            
+			rect = GetLineRect(item.line);
             break;
         }
         case CIRCLE:
         {
-            if (item.circle.center.x - item.circle.radius < minX) minX = item.circle.center.x - item.circle.radius;
-            if (item.circle.center.y - item.circle.radius < minY) minY = item.circle.center.y - item.circle.radius;
-            if (item.circle.center.x + item.circle.radius > maxX) maxX = item.circle.center.x + item.circle.radius;
-            if (item.circle.center.y + item.circle.radius > maxY) maxY = item.circle.center.y + item.circle.radius;
+			rect = GetCircleRect(item.circle);
             break;
         }
         case CURVE:
@@ -478,13 +568,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
         case FMULTILINE:
         case MULTILINE:
         {
-            for (int j = 0; j < item.multipoint.endNum; j++) {
-                if (item.multipoint.points[j].x == ILLEGELMYPOINT || item.multipoint.points[j].y == ILLEGELMYPOINT) continue;
-                if (item.multipoint.points[j].x < minX) minX = item.multipoint.points[j].x;
-                if (item.multipoint.points[j].y < minY) minY = item.multipoint.points[j].y;
-                if (item.multipoint.points[j].x > maxX) maxX = item.multipoint.points[j].x;
-                if (item.multipoint.points[j].y > maxY) maxY = item.multipoint.points[j].y;
-            }
+			rect = GetMultipointRect(item.multipoint);
             break;
         }
         default:
@@ -493,7 +577,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
 
     // 处理无效坐标情况
-    if (minX == ILLEGELMYPOINT || minY == ILLEGELMYPOINT || maxX == ILLEGELMYPOINT || maxY == ILLEGELMYPOINT) {
+    if (rect.minX == DBL_MAX || rect.minY == DBL_MAX || rect.maxX == DBL_MIN || rect.maxY == DBL_MIN) {
         // 没有有效的图形，设置默认坐标
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
         SetCoordinate(coor, center, DEFAULTRADIUS); // 设置坐标系参数
@@ -501,15 +585,15 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
 
     // 计算坐标系的中心点
-    double centerX = (minX + maxX) / 2;
-    double centerY = (minY + maxY) / 2;
+    double centerX = (rect.minX + rect.maxX) / 2;
+    double centerY = (rect.minY + rect.maxY) / 2;
 
     int canvasWidth = canvasRect.right - canvasRect.left;
     int canvasHeight = canvasRect.bottom - canvasRect.top;
 
     // 计算坐标系的半径
-    double radiusX = maxX - centerX;
-    double radiusY = maxY - centerY;
+    double radiusX = rect.maxX - centerX;
+    double radiusY = rect.maxY - centerY;
 
     double radius1 = radiusX / (canvasWidth / 2.0);
     double radius2 = radiusY / (canvasHeight / 2.0);

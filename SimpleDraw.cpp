@@ -657,7 +657,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case FITSCREEN:
 			ClearContent(hdcMemPreview);
-			ClearContent(hdcMemCoS);
 			FitCanvasCoordinate(); // 适应坐标系
 			RedrawFixedContent(hCanvasWnd, hdcMemFixed);
 			RedrawCoSContent(hCanvasWnd, hdcMemCoS);
@@ -1052,8 +1051,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		Cleanup();
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
-		ClearContent(hdcMemCoS);
-		RedrawCoSContent(hCWnd, hdcMemCoS);
+		RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 		NeedRedraw();
 		break;
 	}
@@ -1118,18 +1116,41 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEIMG:
 		{
-			cs.count = ChooseImg(allImg, coordinate, point);
-			if (cs.count != -1) {
-				mst.type = CHOOSEN;
-				// 将图元从 allImg 移除
-			}
-			else {
-				mst.type = CHOOSEIMG;
+			csdraw.index = GetChooseIndex(point);
+			if (csdraw.index != -1) {
+				setType(mst, CHOOSEN);
+				// 将图元从 allImg 中取出
+				PopStoreImgToCSDraw(allImg, csdraw);
+				// 重绘Fix, Preview
+				RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+				ClearContent(hdcMemPreview);
+				ClearContent(hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+				drawCosCSDraw(hdcMemCoS, &csdraw);
+				NeedRedraw();
 			}
 		}
 		break;
 		case CHOOSEN:
 		{
+			int index = GetChooseIndex(point);
+			if (index != csdraw.index) {
+				RestoreCSDraw(allImg, csdraw);
+				csdraw.index = index;
+				if (index != -1) {
+					// 将图元从 allImg 中取出
+					PopStoreImgToCSDraw(allImg, csdraw);
+					// 重绘Fix, Preview
+					RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+					RedrawCoSContent(hCanvasWnd, hdcMemCoS);
+					ClearContent(hdcMemPreview);
+					drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+					NeedRedraw();
+				}
+				else {
+					setType(mst, CHOOSEIMG);
+				}
+			}
 		}
 		break;
 		case DRAWLINE:
@@ -1204,7 +1225,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 1个点
 			else if(drawing.info.multipoint.numPoints == 1){
 				// 将当前点保存到DrawInfo中
-				DrawXLine(hdcMemCoS, mst.lastLButtonDown, point, 1);
+				DrawXLine(hdcMemCoS, mst.lastLButtonDown, point, HELPLINECORLOR, 1);
 				BCurveNextPoint(point);
 			}
 			// 两个点
@@ -1251,8 +1272,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			{
 				// 保存线段
 				ClearContent(hdcMemPreview);
-				if (cs.count == -1) break;
-				DrawInfo choose = allImg.img[cs.count];
+				if (csdraw.index == -1) break;
+				DrawInfo choose = allImg.img[csdraw.index];
 				if (choose.type != LINE) break;
 				MyPoint start = choose.line.start;
 				MyPoint end = choose.line.end;
@@ -1291,19 +1312,17 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEIMG:
 		{
-			// 没有选中
-			ClearContent(hdcMemPreview);
-			NeedRedraw();
+			
 			break;
 		}
 		case CHOOSEN:
 		{
 			if (LButtonClick(point)) {
-				ClearContent(hdcMemPreview);
-				if (cs.count == -1) {
+				ClearContent(hdcMemCoS);
+				if (csdraw.index == -1) {
 					break;
 				}
-				DrawInfo choose = allImg.img[cs.count];
+				DrawInfo choose = allImg.img[csdraw.index];
 				switch (choose.type) {
 				case CIRCLE:
 				{
@@ -1311,11 +1330,11 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 					MyPoint mp = choose.circle.center;
 					POINT pt = mapCoordinate(coordinate, mp.x, mp.y);
 					// 画圆心
-					SelectObject(hdcMemPreview, hPen);
-					SelectObject(hdcMemPreview, hBlackBrush);
-					Ellipse(hdcMemPreview, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
+					SelectObject(hdcMemCoS, hPen);
+					SelectObject(hdcMemCoS, hBlackBrush);
+					Ellipse(hdcMemCoS, pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2);
 					// 显示坐标
-					ShowPointInWindow(hdcMemPreview, mp);
+					ShowPointInWindow(hdcMemCoS, mp);
 					CalAndShowPoint();
 					break;
 				}
@@ -1554,8 +1573,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		}
 		case CHOOSEN:
 		{
-			if (cs.count == -1) break;
-			DrawInfo choose = allImg.img[cs.count];
+			if (csdraw.index == -1) break;
+			DrawInfo choose = allImg.img[csdraw.index];
 			switch (choose.type) {
 			case LINE:
 			{
@@ -1610,12 +1629,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEN:
 		{
-			// 更新状态, 计算是否继续选中
-			DrawInfo choose = allImg.img[cs.count];
-			if (!ContinueChooseDrawInfo(choose, coordinate, point)) {
-				setType(mst, CHOOSEIMG);
-				cs.count = -1;
-			}
+			// 
+
 			break;
 		}
 		case MMOUSEMOVE:
@@ -1630,6 +1645,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			coordinate.center.x += x;
 			coordinate.center.y += y;
 			RedrawFixedContent(hCWnd, hdcMemFixed);
+			RedrawCoSContent(hCWnd, hdcMemCoS);
+			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 			// 触发重绘
 			NeedRedraw();
 			break;
@@ -1690,7 +1707,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				PadColor(hdcMemPreview, pts, drawing.info.multipoint.numPoints + 1, customProperty.bgcolor, customProperty.type);
 				delete[]pts;
 			}
-				
+			
 			// 画虚线
 			if (drawing.info.multipoint.numPoints > 1) {
 				DrawXLine(hdcMemPreview, point, first, &customProperty);
@@ -1707,7 +1724,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			if (!InDraw()) break;
 			ClearContent(hdcMemPreview);
 			if (drawing.info.multipoint.numPoints == 1) {
-				DrawXLine(hdcMemPreview, mst.lastLButtonDown, point, 1);
+				DrawXLine(hdcMemPreview, mst.lastLButtonDown, point, HELPLINECORLOR, 1);
 				NeedRedraw();
 				break;
 			}
@@ -1770,8 +1787,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			{
 				ClearContent(hdcMemPreview);
 				// 预览垂线,为选中的线段的垂线
-				if (cs.count == -1) break;
-				DrawInfo choose = allImg.img[cs.count];
+				if (csdraw.index == -1) break;
+				DrawInfo choose = allImg.img[csdraw.index];
 				if (choose.type != LINE) break;
 				MyPoint start = choose.line.start;
 				MyPoint end = choose.line.end;
@@ -1835,9 +1852,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		UpdateStatusBarRadius(coordinate.radius);
 
 		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
-		ClearContent(hdcMemCoS);
 		RedrawCoSContent(hCWnd, hdcMemCoS);
 		ClearContent(hdcMemPreview);
+		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 
 		// 触发鼠标移动事件
 		LPARAM l = MAKELPARAM(point.x, point.y);
@@ -1938,7 +1955,7 @@ void Cleanup() {
 
 void CalAndShowPoint() {
 	// 计算交点
-	CalculateImg(allImg, cs.count);
+	CalculateImg(allImg, csdraw.index);
 	// 显示交点
 	ShowAllCalPoint(hdcMemPreview, coordinate);
 	return;

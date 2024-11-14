@@ -4,6 +4,9 @@
 #include <Windows.h>
 #include <stack>
 
+#define HELPLINECORLOR	RGB(0, 0 , 255)
+#define HELPPOINTCOLOR	RGB(255, 0, 0)
+
 // 画布宽度和其他宽度
 #define OTHERW 200
 #define HUABUWIDTH(width) (width - OTHERW)
@@ -313,7 +316,7 @@ POINT mapCoordinate(Coordinate& coor, double x, double y) {
 }
 
 // 将画布上的点映射到坐标系上
-void PointToCoordinate(Coordinate& coor, POINT& pt, double& x, double& y) {
+void PointToCoordinate(const Coordinate& coor, POINT& pt, double& x, double& y) {
 	x = (pt.x - coor.center.x) * coor.radius;
 	y = (coor.center.y - pt.y) * coor.radius;
 }
@@ -408,6 +411,24 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 	}
 }
 
+typedef struct CSDrawInfo {
+	int index;
+	DrawInfo choose;
+} CSDrawInfo;
+
+void InitCSDrawInfo(CSDrawInfo& csdraw) {
+	csdraw.index = -1;
+}
+
+void PopStoreImgToCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
+	CopyDrawInfoFromImg(&imgs, &(csdraw.choose), csdraw.index);
+	RemoveDrawInfoFromStoreImg(&imgs, csdraw.index);
+}
+
+void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
+	SetDrawInfoToStoreImg(&imgs, &(csdraw.choose), csdraw.index);
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
@@ -418,5 +439,6 @@ StoreImg allImg;								// 存储所有的图形
 DrawingInfo drawing;							// 当前正在绘制的图形
 DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
-ChooseState cs;									// 
+ChooseState cs;									// 工具栏状态维护
+CSDrawInfo csdraw;								// 被选中的图元
 #endif // WINDOWSIZE_H
