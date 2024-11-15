@@ -1025,6 +1025,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_CREATE:
 	{
+		InitRightMenuM(rmenuManager, hCWnd);
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
 		InitStoreImg(&allImg);
@@ -1044,6 +1045,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_DESTROY:
 	{
+		DestroyRightMenuM(rmenuManager);
 		Cleanup();
 		// 释放画笔和画刷
 		if (hPen) {
@@ -1067,23 +1069,26 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		InitializeBuffers(hCWnd);
 		RedrawFixedContent(hCWnd, hdcMemFixed);
 		RedrawCoSContent(hCanvasWnd, hdcMemCoS);
+		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 		NeedRedraw();
 		break;
 	}
 	case WM_COMMAND:
 	{
-		HMENU hMenu = GetMenu(hCWnd);
-		MENUITEMINFO itemInfo;
-		ZeroMemory(&itemInfo, sizeof(MENUITEMINFO));
-		itemInfo.cbSize = sizeof(MENUITEMINFO);
-		itemInfo.fMask = MIIM_DATA;
-		if (GetMenuItemInfo(hMenu, LOWORD(wParam), FALSE, &itemInfo)) {
-			// 获取附加的数据，即处理函数指针
-			MenuItemHandler handler = (MenuItemHandler)itemInfo.dwItemData;
-			if (handler) {
-				handler(hCWnd);
-			}
+		int menuItemId = LOWORD(wParam);
+		MenuItemData data = GetMenuItemData(rmenuManager, menuItemId);
+		
+		// 调用处理函数
+		switch (data.type) {
+		case HANDLER_NONE:
+			((MenuItemHandlerN)data.handler)();
+			break;
+		case HANDLER_HWND:
+			((MenuItemHandlerH)data.handler)(hCWnd);
+			break;
 		}
+		
+		DWORD e = GetLastError();
 		break;
 	}
 	case WM_PAINT:
@@ -1449,7 +1454,6 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_RBUTTONDOWN:
 	{
-
 		switch (mst.type) {
 		case DRAWLINE:
 		case DRAWCIRCLE:
@@ -1589,14 +1593,23 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			NeedRedraw();
 			break;
 		}
+		// 在选中状态下右键
 		case CHOOSEN:
 		{
 			if (csdraw.index == -1) break;
+			POINT point = getClientPos(lParam);
+			
+			if (!PointInCSDraw(point)) break;
+			
 			DrawInfo choose = csdraw.choose;
+			// 获得右上角坐标
+			MyPoint mp = GetRTMyPoint(csdraw);
+			POINT rtp = mapCoordinate(coordinate, mp.x, mp.y);
 			switch (choose.type) {
 			case LINE:
 			{
-				setKZType(mst, DRAWCX);
+				ShowMenu(rmenuManager, rtp, RigthMenuLine);
+				//setKZType(mst, DRAWCX);
 			}
 			break;
 			default:

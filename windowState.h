@@ -444,6 +444,25 @@ void ClearCSDrawInfo(CSDrawInfo& csdraw) {
 	}
 }
 
+// 右上角
+MyPoint GetRTMyPoint(const CSDrawInfo & csdraw) {
+	return { csdraw.rect.maxX, csdraw.rect.maxY };
+}
+
+// 右下角
+MyPoint GetRBMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.maxX, csdraw.rect.minY };
+}
+
+// 左上角
+MyPoint GetLTMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.minX, csdraw.rect.maxY };
+}
+
+// 左下角 
+MyPoint GetLBMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.minX, csdraw.rect.minY };
+}
 
 void FixMinWoH(CSDrawInfo& csdraw, const Coordinate &coor) {
 	if (csdraw.rect.maxX - csdraw.rect.minX < MINHIGHORWIDTH * coor.radius) {
