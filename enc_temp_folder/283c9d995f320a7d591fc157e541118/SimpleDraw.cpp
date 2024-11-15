@@ -1687,21 +1687,21 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (!InMMove()) break;
 			ClearContent(hdcMemPreview);
-			//if (IsChosen()) {
-			//	// TODO: 是否需要滚轮操作方式?
-			//	// 更新图元位置
-			//	MoveCSDrawInPoint(x, y);
-			//	RedrawCoSContent(hCWnd, hdcMemCoS);
-			//	drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
-			//else {
+			if (IsChosen()) {
+				// TODO: 是否需要滚轮操作方式?
+				// 更新图元位置
+				MoveCSDrawInPoint(x, y);
+				RedrawCoSContent(hCWnd, hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			}
+			else {
 				// 更新坐标系中心
-			coordinate.center.x += x;
-			coordinate.center.y += y;
-			RedrawFixedContent(hCWnd, hdcMemFixed);
-			RedrawCoSContent(hCWnd, hdcMemCoS);
-			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
+				coordinate.center.x += x;
+				coordinate.center.y += y;
+				RedrawFixedContent(hCWnd, hdcMemFixed);
+				RedrawCoSContent(hCWnd, hdcMemCoS);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			}
 			
 			// 触发重绘
 			NeedRedraw();
@@ -1870,6 +1870,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		// 获取鼠标点击的位置
 		StartMMove();
 		POINT point = getClientPos(hCWnd);
+		SetChosen(PointInCSDraw(point));
 		setTypeWithLastType(mst, MMOUSEMOVE);
 		ClearContent(hdcMemPreview);
 		PostMessage(hCanvasWnd, WM_SETCURSOR, NULL, NULL);
@@ -1882,6 +1883,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		// 重置状态
 		POINT point = getClientPos(hCWnd);
 		RestoreFormLastType(mst);
+		SetChosen(false);
 		MMouseUp(mst, point);
 		EndMMove();
 		break;

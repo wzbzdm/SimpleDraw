@@ -29,6 +29,7 @@ typedef struct MenuItemData {
 
 typedef enum RigthMenuType {
     RigthMenuInit,
+    RightMenuNone,
     RigthMenuLine,
 
 } RigthMenuType;
@@ -52,11 +53,6 @@ void MenuTest(HWND hwnd) {
 	MessageBox(hwnd, L"测试", L"测试", MB_OK);
 }
 
-// 进入垂线的绘制
-void MenuLineCX(HWND hwnd) {
-
-}
-
 void InitRightMenuM(RightMenuManager &manager, HWND hwnd) {
     manager.rightPopMenu = CreatePopupMenu();
 	manager.rightMenuType = RigthMenuInit;
@@ -65,6 +61,7 @@ void InitRightMenuM(RightMenuManager &manager, HWND hwnd) {
 
 void DestroyRightMenuM(RightMenuManager& manager) {
     DestroyMenu(manager.rightPopMenu);
+    manager.rightPopMenu = NULL;
     manager.rightMenuData.clear();
 }
 
@@ -96,15 +93,24 @@ void AddMenuItem(RightMenuManager& manager, int id, const wchar_t* text, MenuIte
     int s = SetMenuItemInfo(manager.rightPopMenu, id, FALSE, &itemInfo);
 }
 
+void InitRightMenuNone(RightMenuManager& manager) {
+    MenuItemData data;
+    data.handler = (MenuItemHandler)&MenuTest;
+    data.type = HANDLER_HWND;
+
+    AddMenuItem(manager, SIDM_OPTION2, L"测试", data);
+}
+
+// 进入垂线的绘制
+void MenuLineCX(HWND hwnd) {
+
+}
+
 void InitRightMenuLine(RightMenuManager& manager) {
     MenuItemData data;
 	data.handler = (MenuItemHandler)&MenuLineCX;
 	data.type = HANDLER_HWND;
     AddMenuItem(manager, MENU_LINE_CX, L"作垂线", data);
-
-	data.handler = (MenuItemHandler)&MenuTest;
-	data.type = HANDLER_HWND;
-    AddMenuItem(manager, SIDM_OPTION2, L"测试", data);
 
     AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }
@@ -126,6 +132,11 @@ void InitRightMenu(RightMenuManager& manager, RigthMenuType type) {
     ClearRightMenu(manager);
     manager.rightMenuType = type;
     switch (type) {
+    case RightMenuNone:
+    {
+        InitRightMenuNone(manager);
+        break;
+    }
 	case RigthMenuLine:
 		InitRightMenuLine(manager);
 		break;
@@ -139,4 +150,3 @@ void ShowMenu(RightMenuManager& manager, POINT pt, RigthMenuType type) {
 	}
     TrackPopupMenu(manager.rightPopMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, manager.hwnd, NULL);
 }
-
