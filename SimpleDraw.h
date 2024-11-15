@@ -464,21 +464,23 @@ void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
 	DrawDrawInfoRect(hdc, csdraw->rect);
 	switch (csdraw->choose.type) {
 	case LINE:
+		DrawLineHelp(hdc, csdraw->choose.line, 3, HELPPOINTCOLOR);
 		break;
 	case RECTANGLE:
+		DrawRectangleHelp(hdc, csdraw->choose.rectangle, 3, HELPPOINTCOLOR);
 		break;
 	case CIRCLE:
+		DrawCircleHelp(hdc, csdraw->choose.circle, 3, HELPPOINTCOLOR);
 		break;
 	case MULTILINE:
-		break;
 	case FMULTILINE:
-		break;
 	case CURVE:
 		DrawMultiPointHelpNoL(hdc, &(csdraw->choose.multipoint));
 		break;
 	case BCURVE:
-
-		//DrawBCurveHelp(hdc, &(csdraw->choose.multipoint), BSPLINE, csdraw->choose.multipoint.numPoints);
+		POINT* pts = mapMyPoints(csdraw->choose.multipoint.points, csdraw->choose.multipoint.numPoints, csdraw->choose.multipoint.endNum);
+		DrawBCurveHelp(hdc, pts, BSPLINE, csdraw->choose.multipoint.numPoints);
+		delete[] pts;
 		break;
 	}
 }
@@ -986,3 +988,4 @@ void ZoomCSDrawMyPoint(const MyPoint& center, double scale) {
 	ZoomDrawInfo(csdraw.choose, center, scale);
 	CalcCSDrawRect(csdraw, coordinate);
 }
+

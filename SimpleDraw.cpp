@@ -603,55 +603,55 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case DRAW_LINE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWLINE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWLINE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_LINE);
 			setType(mst, DRAWLINE);
 			setDrawInfoType(&(drawing.info), LINE);
 
 			break;
 		case DRAW_CIRCLE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCIRCLE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCIRCLE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_CIRCLE);
 			setType(mst, DRAWCIRCLE);
 			setDrawInfoType(&(drawing.info), CIRCLE);
 
 			break;
 		case CHOOSE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, CHOOSEIMG, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, CHOOSEIMG, 0);
 			SetToolBarCheck(hToolBar, cs, CHOOSE);
 			setType(mst, CHOOSEIMG);
 
 			break;
 		case DRAW_RECT:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWRECTANGLE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWRECTANGLE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_RECT);
 			setType(mst, DRAWRECTANGLE);
 			setDrawInfoType(&(drawing.info), RECTANGLE);
 
 			break;
 		case DRAW_CURVE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_CURVE);
 			setType(mst, DRAWCURVE);
 			setDrawInfoType(&(drawing.info), CURVE);
 
 			break;
 		case DRAW_BCURVE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_BCURVE);
 			setType(mst, DRAWBCURVE);
 			setDrawInfoType(&(drawing.info), BCURVE);
 
 			break;
 		case DRAW_MUTILINE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWMULTILINE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWMULTILINE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_MUTILINE);
 			setType(mst, DRAWMULTILINE);
 			setDrawInfoType(&(drawing.info), MULTILINE);
 
 			break;
 		case DRAW_FMULTI:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWFMULTI, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWFMULTI, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_FMULTI);
 			setType(mst, DRAWFMULTI);
 			setDrawInfoType(&(drawing.info), FMULTILINE);
@@ -1123,8 +1123,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	break;
 	case CUSTOM_REDRAW_DRAWING:
 	{
+		RefreshCSDrawPro(csdraw, customProperty);
 		ClearContent(hdcMemPreview);
 		drawDrawing(hdcMemPreview, &drawing, &customProperty);
+		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 		NeedRedraw();
 		break;
 	}
@@ -1687,22 +1689,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (!InMMove()) break;
 			ClearContent(hdcMemPreview);
-			//if (IsChosen()) {
-			//	// TODO: 是否需要滚轮操作方式?
-			//	// 更新图元位置
-			//	MoveCSDrawInPoint(x, y);
-			//	RedrawCoSContent(hCWnd, hdcMemCoS);
-			//	drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
-			//else {
-				// 更新坐标系中心
 			coordinate.center.x += x;
 			coordinate.center.y += y;
 			RedrawFixedContent(hCWnd, hdcMemFixed);
 			RedrawCoSContent(hCWnd, hdcMemCoS);
 			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
-			
+
 			// 触发重绘
 			NeedRedraw();
 			break;
@@ -2026,6 +2018,7 @@ void LoadMyCustomCuser() {
 }
 
 void ClearCSState() {
+	RefreshCSDrawPro(csdraw, customProperty);
 	RestoreCSDraw(allImg, csdraw);
 	ClearContent(hdcMemPreview);
 	ClearContent(hdcMemCoS);

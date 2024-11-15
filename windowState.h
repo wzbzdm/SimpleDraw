@@ -496,6 +496,10 @@ void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
 	ClearCSDrawInfo(csdraw);
 }
 
+void RefreshCSDrawPro(CSDrawInfo& csdraw, const DrawUnitProperty& dup) {
+	csdraw.choose.proper = dup;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
