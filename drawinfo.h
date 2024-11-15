@@ -25,11 +25,11 @@ extern "C" {
 #define MAX_IMG_NUM 30
 #define ADD_IMG_NUM 15
 
-#define IMG_HEADER "GTX"
-#define FILE_VERSION "1.4"
-
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
+
+	constexpr char IMG_HEADER[FILEHEADERL] =	"GTX";
+	constexpr char FILE_VERSION[FILEVERSIONL] = "1.4";
 
 #define BSPLINE				3
 			
@@ -256,6 +256,7 @@ extern "C" {
 		if (multipoint == another) return;
 		if (!another) return;
 		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
+		if (!(multipoint->points)) return;
 		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));
 		multipoint->numPoints = another->numPoints;
 		multipoint->endNum = another->endNum;
@@ -280,9 +281,12 @@ extern "C" {
 
 		if (multipoint->numPoints == multipoint->maxNum) {
 			// 扩容
-			multipoint->points = (MyPoint*)realloc(multipoint->points, (multipoint->maxNum + ADD_POINT) * sizeof(MyPoint));
+			MyPoint* temp = (MyPoint*)realloc(multipoint->points, (multipoint->maxNum + ADD_POINT) * sizeof(MyPoint));
+			if (!temp) return;
+			multipoint->points = temp;
 			multipoint->maxNum += ADD_POINT;
 		}
+		if (!(multipoint->points)) return;
 		multipoint->points[multipoint->endNum++] = point;
 		multipoint->numPoints++;
 	}
@@ -427,6 +431,11 @@ extern "C" {
 		int maxNum;			 // 当前数组的最大容量
 	} StoreImg;
 
+	typedef enum StoreImgCode {
+		OK,
+		ADDERROR,
+	} StoreImgCode;
+
 	void InitStoreImg(StoreImg* store) {
 		if (!store->img) {
 			store->img = (DrawInfo*)malloc(MAX_IMG_NUM * sizeof(DrawInfo));
@@ -461,9 +470,12 @@ extern "C" {
 
 		if (store->num == store->maxNum) {
 			// 扩容
-			store->img = (DrawInfo*)realloc(store->img, (store->maxNum + ADD_IMG_NUM) * sizeof(DrawInfo));
+			DrawInfo* temp = (DrawInfo*)realloc(store->img, (static_cast<unsigned long long>(store->maxNum) + ADD_IMG_NUM) * sizeof(DrawInfo));
+			if (!temp) return;
+			store->img = temp;
 			store->maxNum += ADD_IMG_NUM;
 		}
+		if (!store->img) return;
 		store->img[store->endNum++] = draw;
 		store->num++;
 	}
@@ -886,9 +898,10 @@ extern "C" {
 
 	FileOpenAndSave StoreImgToFile(StoreImg* store, const wchar_t* filename) {
 		FILE* file;
-		if (_wfopen_s(&file, filename, L"wb") != 0) {
-			return FILEOPENFAILE;
-		}
+
+		_wfopen_s(&file, filename, L"wb");
+
+		if (!file) return FILEOPENFAILE;
 
 		// 写入GTX文件头
 		fwrite(IMG_HEADER, sizeof(char), FILEHEADERL - 1, file);
@@ -972,7 +985,15 @@ extern "C" {
 		Byte* buffer = (Byte*)malloc(imgSize * sizeof(Byte));
 		int index = 0;
 		// 读取剩余数据
-		fread(buffer, imgSize, 1, file);
+		if (buffer) {
+			fread(buffer, imgSize, 1, file);
+		}
+		else {
+			free(buffer);
+			fclose(file);
+			return MEMORRYALLOCFAIL;
+		}
+		
 		// 读取每个图像
 		for (int i = 0; i < store->endNum; i++) {
 			store->img[i] = BytesToDrawInfo(buffer, &index);

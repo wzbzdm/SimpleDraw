@@ -190,7 +190,9 @@ POINT* mapLastMyPoints(MyPoint* mp, int length, int end) {
 	int count = 0;
 	for (int i = end - length; i < end; i++) {
 		MyPoint pt = mp[i];
-		points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+		if (count < length) {
+			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
+		}
 	}
 
 	return points;
@@ -276,7 +278,9 @@ void DrawCurveM(HDC hdc, MyPoint* points, int numPoints, int endNum, const DrawU
 		MyPoint pt = points[i];
 		if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
 		POINT p = mapCoordinate(coordinate, pt.x, pt.y);
-		gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
+		if (count < numPoints) {
+			gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
+		}
 	}
 	if (count == numPoints) {
 		// 使用GDI+绘图

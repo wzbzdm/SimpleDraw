@@ -68,10 +68,10 @@ public:
 		if (hTrackbar) {
 			// 设置子类化，确保在滑块获取焦点时移除虚线框
 			SetWindowSubclass(hTrackbar, TrackbarSubclassProc, 0, 0);
+			SendMessage(hTrackbar, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // 设置范围
+			SendMessage(hTrackbar, TBM_SETPOS, TRUE, 1); // 默认值
 		}
 
-		SendMessage(hTrackbar, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // 设置范围
-		SendMessage(hTrackbar, TBM_SETPOS, TRUE, 1); // 默认值
 		value = 1; // 初始化值
 
 		// 处理重绘

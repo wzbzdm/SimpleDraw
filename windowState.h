@@ -74,6 +74,7 @@ typedef enum DrawType {
 } DrawType;
 
 typedef enum KZDrawType {
+	KZNONE,
 	DRAWCX,				// 画垂线
 } KZDrawType;
 
@@ -83,20 +84,22 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
-	bool draw;				// 绘图中
-	bool mmove;				// mmove
-	bool chosen;			// 选中状态还是非选中
-	DrawType type;
-	DrawType lastType;
+	bool draw = false;				// 绘图中
+	bool mmove = false;				// mmove
+	bool chosen = false;			// 选中状态还是非选中
+	DrawType type = DrawType::CHOOSEIMG;
+	DrawType lastType = DrawType::CHOOSEIMG;
 	std::stack<DrawType> preType;
-	typeGo* go;
-	typeBack* back;
-	KZDrawType kztype;
-	POINT lastMouseP;
-	POINT lastMMouseBDown;
-	POINT lastMMouseBUp;
-	POINT lastLButtonDown;
-	POINT lastLButtonUp;
+	typeGo* go = nullptr;
+	typeBack* back = nullptr;
+	KZDrawType kztype = KZDrawType::KZNONE;
+	POINT lastMouseP = INITPOINT;
+	POINT lastMMouseBDown = INITPOINT;
+	POINT lastMMouseBUp = INITPOINT;
+	POINT lastLButtonDown = INITPOINT;
+	POINT lastLButtonUp = INITPOINT;
+
+	MyDrawState() = default;
 };
 
 void LButtonDown(MyDrawState &mst, POINT point) {
@@ -160,7 +163,8 @@ void RestoreFormLastType(MyDrawState& mst) {
 
 void InitMyDrawState(MyDrawState& mst) {
 	mst.draw = false;
-	mst.mmove = false;;
+	mst.mmove = false;
+	mst.chosen = false;
 	mst.type = CHOOSEIMG;
 	mst.lastType = CHOOSEIMG;
 	ClearStateP(mst);
@@ -360,7 +364,7 @@ typedef struct DrawingInfo {
 } DrawingInfo;
 
 void InitDrawing(DrawingInfo *di) {
-	di->info.type = NONE;
+	di->info.type = ImgType::NONE;
 	di->lastRem = { ILLEGELMYPOINT, ILLEGELMYPOINT };
 }
 
@@ -422,9 +426,10 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 #define HELPXLINERADIUS			1.2
 
 typedef struct CSDrawInfo {
-	int index;
+	int index = -1;
 	DrawInfo choose;
 	DrawInfoRect rect;
+	CSDrawInfo() = default;
 } CSDrawInfo;
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {

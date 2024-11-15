@@ -1553,7 +1553,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				MyPoint pt = drawing.info.multipoint.points[i];
 				if (pt.x == ILLEGELMYPOINT || pt.y == ILLEGELMYPOINT) continue;
 				POINT p = mapCoordinate(coordinate, pt.x, pt.y);
-				gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
+				if (count < drawing.info.multipoint.numPoints) {
+					gdiplusPoints[count++] = Gdiplus::Point(p.x, p.y);
+				}
 			}
 			if (count == drawing.info.multipoint.numPoints)
 			{
@@ -1661,6 +1663,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			int x = point.x - mst.lastMouseP.x;
 			int y = point.y - mst.lastMouseP.y;
 			if (IsChosen()) {
+				// TODO: 是否需要滚轮操作方式?
 				// 更新图元位置
 				MoveCSDrawInPoint(x, y);
 				RedrawCoSContent(hCWnd, hdcMemCoS);
