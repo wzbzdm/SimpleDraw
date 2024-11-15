@@ -320,7 +320,7 @@ void SetCoordinate(Coordinate& coor, POINT center, const double radius) {
 }
 
 // 将坐标映射到画布上
-POINT mapCoordinate(Coordinate& coor, double x, double y) {
+POINT mapCoordinate(const Coordinate& coor, double x, double y) {
 	POINT pt;
 	pt.x = (LONG)(coor.center.x + x / coor.radius);
 	pt.y = (LONG)(coor.center.y - y / coor.radius);
@@ -424,6 +424,7 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 }
 
 #define HELPXLINERADIUS			1.2
+#define MINHIGHORWIDTH			30			// 最窄像素
 
 typedef struct CSDrawInfo {
 	int index = -1;
@@ -443,16 +444,32 @@ void ClearCSDrawInfo(CSDrawInfo& csdraw) {
 	}
 }
 
-void CalcCSDrawRect(CSDrawInfo& csdraw) {
+
+void FixMinWoH(CSDrawInfo& csdraw, const Coordinate &coor) {
+	if (csdraw.rect.maxX - csdraw.rect.minX < MINHIGHORWIDTH * coor.radius) {
+		double kz = (MINHIGHORWIDTH * coor.radius - (csdraw.rect.maxX - csdraw.rect.minX)) / 2;
+		csdraw.rect.maxX += kz;
+		csdraw.rect.minX -= kz;
+	}
+
+	if (csdraw.rect.maxY - csdraw.rect.minY < MINHIGHORWIDTH * coor.radius) {
+		double kz = (MINHIGHORWIDTH * coor.radius - (csdraw.rect.maxY - csdraw.rect.minY)) / 2;
+		csdraw.rect.maxY += kz;
+		csdraw.rect.minY -= kz;
+	}
+}
+
+void CalcCSDrawRect(CSDrawInfo& csdraw, const Coordinate& coor) {
 	csdraw.rect = INITDRAWINFORECT;
 	GetDrawInfoRect(&(csdraw.choose), &(csdraw.rect));
+	FixMinWoH(csdraw, coor);
 	MapDrawInfoRect(&(csdraw.rect), HELPXLINERADIUS);
 }
 
-void PopStoreImgToCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
+void PopStoreImgToCSDraw(StoreImg& imgs, CSDrawInfo& csdraw, const Coordinate& coor) {
 	CopyDrawInfoFromImg(&imgs, &(csdraw.choose), csdraw.index);
 	RemoveDrawInfoFromStoreImg(&imgs, csdraw.index);
-	CalcCSDrawRect(csdraw);
+	CalcCSDrawRect(csdraw, coor);
 }
 
 void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {

@@ -13,6 +13,7 @@ GdiplusStartupInput gdiplusStartupInput; // GDI+ 初始化输入
 
 void DrawBSplineC(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro);
 void DrawBCurveHelp(HDC hdc, POINT* points, int degree, int n);
+void ShowAllCalPoint(HDC hdc, Coordinate coor);
 
 // 初始化 GDI+
 void InitGDIPlus() {
@@ -366,6 +367,7 @@ void drawStoreImg(HDC hdc, StoreImg* imgs) {
 */
 
 void drawDrawing(HDC hdc, const DrawingInfo* drawing, const DrawUnitProperty* pro) {
+	if (drawing->lastRem.x == ILLEGELMYPOINT && drawing->lastRem.y == ILLEGELMYPOINT) return;
 	// 创建画笔
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	// 创建画刷
@@ -526,6 +528,12 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 	drawDrawing(hdc, &drawing, &customProperty);
 }
 
+void drawCosCalcPoint(HDC hdc) {
+	if (csdraw.index == -1) return;
+	CalculateImg(allImg, csdraw);
+	ShowAllCalPoint(hdc, coordinate);
+}
+
 // 中间窗口重绘
 void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 	RECT rect;
@@ -537,6 +545,7 @@ void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 
 	drawCoSDrawing(hdc, &drawing);
 	drawCosCSDraw(hdc, &csdraw);
+	drawCosCalcPoint(hdc);
 }
 
 void EnableMouseTracking(HWND hWnd) {
@@ -970,10 +979,10 @@ void MoveCSDrawInPoint(int x, int y) {
 	double dx = x * coordinate.radius;
 	double dy = - y * coordinate.radius;
 	MoveDrawInfo(csdraw.choose, dx, dy);
-	CalcCSDrawRect(csdraw);
+	CalcCSDrawRect(csdraw, coordinate);
 }
 
 void ZoomCSDrawMyPoint(const MyPoint& center, double scale) {
 	ZoomDrawInfo(csdraw.choose, center, scale);
-	CalcCSDrawRect(csdraw);
+	CalcCSDrawRect(csdraw, coordinate);
 }

@@ -159,11 +159,12 @@ MyPoint CalPerpendicular(MyPoint start, MyPoint end, MyPoint mp) {
 }
 
 // 图形计算逻辑, 交点
-void CalculateImg(StoreImg& allimg, int count) {
+void CalculateImg(StoreImg& allimg, CSDrawInfo& csdraw) {
+    if (csdraw.index < 0 || csdraw.index >= allImg.endNum) return;
     CalculatePoints.clear();
-    DrawInfo choose = allimg.img[count];
+    DrawInfo choose = csdraw.choose;
     for (int i = 0; i < allimg.endNum; i++) {
-        if (i == count) continue;
+        if (csdraw.index == i) continue;
         DrawInfo item = allimg.img[i];
         if (item.type == LINE && choose.type == LINE) {
             MyPoint mp;
@@ -462,7 +463,7 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
     for (int i = 0; i < img.endNum; i++) {
         DrawInfo item = img.img[i];
-        DrawInfoRect nowrect;
+        DrawInfoRect nowrect = INITDRAWINFORECT;
         GetDrawInfoRect(&item, &nowrect);
 		LargestRect(&rect, &nowrect);
     }

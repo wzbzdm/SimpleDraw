@@ -189,6 +189,7 @@
     <None Include="drawing.cur" />
     <None Include="idcmove.cur" />
     <None Include="README.md" />
+    <None Include="TODO.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

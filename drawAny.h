@@ -43,6 +43,9 @@ int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	MoveToEx(hdc, start.x, start.y, NULL);
 	LineTo(hdc, end.x, end.y);
 
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+
 	return 0;
 }
 
@@ -62,6 +65,9 @@ int DrawXLine(HDC hdc, POINT start, POINT end, int color, int width) {
 	SelectObject(hdc, hNullBrush);
 	MoveToEx(hdc, start.x, start.y, NULL);
 	LineTo(hdc, end.x, end.y);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
 
 	return 0;
 }

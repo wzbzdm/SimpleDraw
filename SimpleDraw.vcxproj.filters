@@ -54,6 +54,9 @@
     <ClInclude Include="showRMenu.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ywljDraw.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimpleDraw.cpp">
@@ -124,6 +127,9 @@
     </None>
     <None Include=".gitignore">
       <Filter>config</Filter>
+    </None>
+    <None Include="TODO.md">
+      <Filter>doc</Filter>
     </None>
   </ItemGroup>
 </Project>
