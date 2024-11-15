@@ -506,8 +506,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (wParam == REDRAW) {
 			if (needRedraw) {
 				// 使用定时器清空背景
-				InvalidateRect(hCanvasWnd, NULL, FALSE);
-				Redraw();
+				PostMessage(hCanvasWnd, CUSTOM_POST_DRAW, NULL, NULL);
 			}
 		}
 		break;
@@ -1016,6 +1015,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		else {
 			SetCursor(originalCursor);
 		}
+		break;
+	}
+	case CUSTOM_POST_DRAW:
+	{
+		InvalidateRect(hCWnd, NULL, FALSE);
+		Redraw();
 		break;
 	}
 	case WM_CREATE:
