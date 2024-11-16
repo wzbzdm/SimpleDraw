@@ -189,6 +189,8 @@
     <None Include="drawing.cur" />
     <None Include="idcmove.cur" />
     <None Include="README.md" />
+    <None Include="setup\setup.md" />
+    <None Include="setup\SimpleDraw.iss" />
     <None Include="TODO.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

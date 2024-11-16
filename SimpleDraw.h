@@ -6,6 +6,8 @@
 #include "windowState.h"
 #include "calculateImg.h"
 
+#define DLLPATH		L"DLL"
+
 using namespace Gdiplus;
 
 ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
