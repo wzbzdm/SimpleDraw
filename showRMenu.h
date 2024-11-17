@@ -39,6 +39,7 @@ typedef struct RightMenuManager {
     RigthMenuType rightMenuType;
     HMENU rightPopMenu;
 	HWND hwnd;
+	RightMenuManager() : rightMenuType(RigthMenuInit), rightPopMenu(NULL), hwnd(NULL) {}
 } RightMenuManager;
 
 void MENUHANDLERNONE() {

@@ -1816,7 +1816,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			if (count == drawing.info.multipoint.numPoints) {
 				ClearContent(hdcMemPreview);
-				gdiplusPoints[count] = Gdiplus::Point(point.x, point.y);
+				gdiplusPoints[drawing.info.multipoint.numPoints] = Gdiplus::Point(point.x, point.y);
 				// 画曲线
 				Graphics graphics(hdcMemPreview);
 				int color = customProperty.color;

@@ -427,10 +427,10 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 #define MINHIGHORWIDTH			30			// 最窄像素
 
 typedef struct CSDrawInfo {
-	int index = -1;
+	int index;
 	DrawInfo choose;
 	DrawInfoRect rect;
-	CSDrawInfo() = default;
+	CSDrawInfo() : index(-1), choose(), rect() {};
 } CSDrawInfo;
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
