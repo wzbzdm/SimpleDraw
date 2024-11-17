@@ -510,3 +510,58 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 当前应该在中点
     pt = mapCoordinate(coor, centerX, centerY);
 }
+
+// DeBoor 递归计算
+double DeBoor(int i, int k, double u, std::vector<double>& ui) {
+    if (k == 0) {
+        return (u >= ui[i] && u < ui[i + 1]) ? 1.0 : 0.0;
+    }
+
+    double ai = (ui[i + k] != ui[i]) ? (u - ui[i]) / (ui[i + k] - ui[i]) : 0;
+    double bi = (ui[i + k + 1] != ui[i + 1]) ? (ui[i + k + 1] - u) / (ui[i + k + 1] - ui[i + 1]) : 0;
+    double uik1 = DeBoor(i, k - 1, u, ui);
+    double uik2 = DeBoor(i + 1, k - 1, u, ui);
+
+    return ai * uik1 + bi * uik2;
+}
+
+#define BCURVECALCPOINT     100
+
+// 均匀B样条计算
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree, int n) {
+    // 计算曲线上的点
+    std::vector<POINT> res(n);
+
+    if (points.size() < degree)
+        return res;
+
+	// 计算 ui, 范围为 [0, 1]
+    int sizep = points.size();
+    double num = sizep + degree;
+	std::vector<double> ui(num + 1);
+
+    // 初始化 ui
+	for (int i = 0; i <= num ; i++) {
+		ui[i] = i / num;
+	}
+
+    for (int i = 0; i < n; i++) {
+        double u = (double)i / (n - 1) * (ui[sizep] - ui[degree]) + ui[degree]; // 映射 u 的范围v
+        POINT p = { 0, 0 };
+
+        for (int j = 0; j < sizep; j++) {
+            double nij = DeBoor(j, degree, u, ui);
+            p.x += nij * points[j].x;
+            p.y += nij * points[j].y;
+        }
+
+        res[i] = p;
+    }
+
+	return res;
+}
+
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree) {
+	// 默认计算 100 个点
+	return CalcDeBoor(points, degree, BCURVECALCPOINT);
+}

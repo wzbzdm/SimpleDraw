@@ -2,6 +2,7 @@
 
 #include "drawinfo.h"
 #include "windowState.h"
+#include "calculateImg.h"
 #include <vector>
 #include <algorithm>
 #include <thread>
@@ -744,5 +745,26 @@ void FenceFill(HDC hdc, POINT* points, int n, int color) {
 				SetPixelPoint(hdc, x, y, color);
 			}
 		}
+	}
+}
+
+// 任意阶均匀B样条计算
+void DrawBCurveDeBoor(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro) {
+	// 将指针转化为 vector
+	std::vector<POINT> points(controlPoints, controlPoints + n);
+
+	// 计算 B 样条曲线上的点, 默认 100 个点
+	std::vector<POINT> curvePoints = CalcDeBoor(points, degree);
+
+	if (curvePoints.size() == 0) return;
+
+	if (curvePoints.size() == 1) {
+		DrawPoint(hdc, curvePoints[0].x, curvePoints[0].y, 3, pro->color);
+		return;
+	}
+
+	// 绘制 B 样条曲线
+	for (size_t i = 0; i < curvePoints.size() - 1; ++i) {
+		DrawLine(hdc, curvePoints[i], curvePoints[i + 1], pro);
 	}
 }
