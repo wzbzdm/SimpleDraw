@@ -19,6 +19,9 @@
     <Filter Include="config">
       <UniqueIdentifier>{24b0efa3-4cf1-4471-9f0e-4a88c77849fb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="setup">
+      <UniqueIdentifier>{fa34a68d-337a-411e-9192-d8a8b4c7c3e3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -49,6 +52,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="customSlider.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="showRMenu.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ywljDraw.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -121,6 +130,15 @@
     </None>
     <None Include=".gitignore">
       <Filter>config</Filter>
+    </None>
+    <None Include="TODO.md">
+      <Filter>doc</Filter>
+    </None>
+    <None Include="setup\setup.md">
+      <Filter>setup</Filter>
+    </None>
+    <None Include="setup\SimpleDraw.iss">
+      <Filter>setup</Filter>
     </None>
   </ItemGroup>
 </Project>

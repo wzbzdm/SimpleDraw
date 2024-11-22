@@ -3,6 +3,7 @@
 #include "drawinfo.h"
 #include <iostream>
 #include <vector>
+
 #define MAXWTOCHHOSE 10
 #define MAXWCONTINUECHOOSE 25
 
@@ -158,11 +159,12 @@ MyPoint CalPerpendicular(MyPoint start, MyPoint end, MyPoint mp) {
 }
 
 // 图形计算逻辑, 交点
-void CalculateImg(StoreImg& allimg, int count) {
+void CalculateImg(StoreImg& allimg, CSDrawInfo& csdraw) {
+    if (csdraw.index < 0 || csdraw.index >= allImg.endNum) return;
     CalculatePoints.clear();
-    DrawInfo choose = allimg.img[count];
+    DrawInfo choose = csdraw.choose;
     for (int i = 0; i < allimg.endNum; i++) {
-        if (i == count) continue;
+        if (csdraw.index == i) continue;
         DrawInfo item = allimg.img[i];
         if (item.type == LINE && choose.type == LINE) {
             MyPoint mp;
@@ -203,7 +205,7 @@ void CalculateImg(StoreImg& allimg, int count) {
 bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     MyPoint mp;
     PointToCoordinate(coor, p, mp.x, mp.y);
-    double d = DBL_MAX;
+    double d = ILLEGELMYPOINT;
     switch (choose.type) {
     case LINE:
     {
@@ -223,9 +225,13 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     case CURVE:
     case BCURVE:
     case MULTILINE:
-    case FMULTILINE:
     {
         d = GetMinDPointToMultipoint(mp, &(choose.multipoint));
+        break;
+    }
+    case FMULTILINE:
+    {
+        d = GetMinDPointToFMultipoint(mp, &(choose.multipoint));
         break;
     }
     default:
@@ -241,67 +247,223 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     return true;
 }
 
+void MoveMyPoint(MyPoint& p, double x, double y) {
+	p.x += x;
+	p.y += y;
+}
+
+// 图像平移
+void MoveDrawInfo(DrawInfo &info, double x, double y) {
+	if (x == 0 && y == 0) return;
+    switch (info.type) {
+    case LINE:
+    {
+        MoveMyPoint(info.line.start, x, y);
+        MoveMyPoint(info.line.end, x, y);
+    }
+    break;
+    case CIRCLE:
+    {
+		MoveMyPoint(info.circle.center, x, y);
+    }
+    break;
+    case RECTANGLE:
+    {
+		MoveMyPoint(info.rectangle.start, x, y);
+		MoveMyPoint(info.rectangle.end, x, y);
+    }
+    break;
+    case CURVE:
+    case BCURVE:
+    case MULTILINE:
+    case FMULTILINE:
+    {
+        for (int i = 0; i < info.multipoint.endNum; i++) {
+            if (HFMyPoint(&(info.multipoint.points[i]))) {
+                MoveMyPoint(info.multipoint.points[i], x, y);
+            }
+        }
+    }
+    break;
+    }
+}
+
+void ZoomMyPoint(MyPoint &p, const MyPoint &center, double scale) {
+	p.x = center.x + (p.x - center.x) * scale;
+	p.y = center.y + (p.y - center.y) * scale;
+}
+
+void ZoomPoint(POINT& p, const POINT& center, double scale) {
+    p.x = center.x + (p.x - center.x) * scale;
+    p.y = center.y + (p.y - center.y) * scale;
+}
+
+// TODO: 缩放图元, 根据缩放比例，缩放所有坐标
+void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
+	if (scale == 1.0) return;
+    if (scale == 0) return;
+    // 根据中心点和相应比例改变图形坐标
+    switch (info.type) {
+    case LINE:
+    {
+		ZoomMyPoint(info.line.start, center, scale);
+		ZoomMyPoint(info.line.end, center, scale);
+    }
+    break;
+    case CIRCLE:
+    {
+		ZoomMyPoint(info.circle.center, center, scale);
+		info.circle.radius *= scale;
+    }
+    break;
+    case RECTANGLE:
+    {
+		ZoomMyPoint(info.rectangle.start, center, scale);
+		ZoomMyPoint(info.rectangle.end, center, scale);
+    }
+    break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+    case FMULTILINE:
+    {
+		for (int i = 0; i < info.multipoint.endNum; i++) {
+            if (HFMyPoint(&(info.multipoint.points[i]))) {
+                ZoomMyPoint(info.multipoint.points[i], center, scale);
+            }
+		}
+    }
+    break;
+    }
+}
+
+void ZoomCoordinate(Coordinate& coor, const POINT& pt, double scale) {
+    ZoomPoint(coor.center, pt, scale);
+}
+
+void RotateMyPoint(MyPoint& p, const MyPoint center, double angle) {
+	double x = p.x - center.x;
+	double y = p.y - center.y;
+	double x1 = x * cos(angle) - y * sin(angle);
+	double y1 = x * sin(angle) + y * cos(angle);
+	p.x = x1 + center.x;
+	p.y = y1 + center.y;
+}
+
+// 图像旋转
+void RotateDrawInfo(DrawInfo& info, const MyPoint& center, double angle) {
+	if (angle == 0) return;
+	// 根据中心点和相应角度改变图形坐标
+	switch (info.type) {
+	case LINE:
+	{
+		RotateMyPoint(info.line.start, center, angle);
+		RotateMyPoint(info.line.end, center, angle);
+	}
+	break;
+	case CIRCLE:
+	{
+		RotateMyPoint(info.circle.center, center, angle);
+	}
+	break;
+	case RECTANGLE:
+	{
+		RotateMyPoint(info.rectangle.start, center, angle);
+		RotateMyPoint(info.rectangle.end, center, angle);
+	}
+	break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+	{
+		for (int i = 0; i < info.multipoint.endNum; i++) {
+			if (HFMyPoint(&(info.multipoint.points[i]))) {
+				RotateMyPoint(info.multipoint.points[i], center, angle);
+			}
+		}
+	}
+	break;
+	}
+}
+
+double GetDrawInfoDistance(DrawInfo& item, const MyPoint& mp) {
+    double d = DBL_MAX;
+    switch (item.type) {
+    case LINE:
+    {
+        d = DistanceToLine(mp, item.line);
+        break;
+    }
+    case CIRCLE:
+    {
+        d = GetDPointToCircle(mp, item.circle);
+        break;
+    }
+    case RECTANGLE:
+    {
+        d = GetMinDPointToRectangle(mp, item.rectangle);
+        break;
+    }
+    case CURVE:
+    case BCURVE:
+    case MULTILINE:
+    {
+        d = GetMinDPointToMultipoint(mp, &(item.multipoint));
+        break;
+    }
+    case FMULTILINE:
+    {
+        d = GetMinDPointToFMultipoint(mp, &(item.multipoint));
+        break;
+    }
+    default:
+        break;
+    }
+
+    return d;
+}
+
 // 图形选择逻辑
-int ChooseImg(StoreImg& store, Coordinate coor, POINT p) {
+int ChooseImg(const StoreImg& store, const Coordinate& coor, POINT p) {
     int count = -1;
     double minDistance = MAXWTOCHHOSE * coor.radius;
     MyPoint mp;
     PointToCoordinate(coor, p, mp.x, mp.y);
     for (int i = 0; i < store.endNum; i++) {
         DrawInfo item = store.img[i];
-        switch (item.type) {
-        case LINE:
-        {
-            double d = DistanceToLine(mp, item.line);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
-            break;
-        }
-        case CIRCLE:
-        {
-            double d = GetDPointToCircle(mp, item.circle);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
-            break;
-        }
-        case RECTANGLE:
-        {
-            double d = GetMinDPointToRectangle(mp, item.rectangle);
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
-            break;
-        }
-        case CURVE:
-        case BCURVE:
-        case MULTILINE:
-        case FMULTILINE:
-        {
-            double d = GetMinDPointToMultipoint(mp, &(item.multipoint));
-            if (minDistance > d) {
-                minDistance = d;
-                count = i;
-            }
-            break;
-        }
-        default:
-            break;
+        double d = GetDrawInfoDistance(item, mp);
+
+        if (minDistance > d) {
+            minDistance = d;
+            count = i;
         }
     }
 
     return count;
 }
 
+// 判断点是否在选中区域内
+/*
+线，圆，矩形的选中区域为矩形
+多义线等选中区域为每条线周围所有矩形区域的和
+*/
+// TODO: 
+bool MyPointInCSDrawInfo(const DrawInfoRect& rect, const MyPoint& mp) {
+    return mp.x < rect.maxX && mp.x > rect.minX && mp.y < rect.maxY && mp.y > rect.minY;
+}
+
+bool ChooseCSdraw(const CSDrawInfo& csdraw, const Coordinate& coor, POINT p) {
+    if (csdraw.index == -1) return false;
+    MyPoint mp;
+    PointToCoordinate(coor, p, mp.x, mp.y);
+    return MyPointInCSDrawInfo(csdraw.rect, mp);
+}
+
 // 使当前坐标系适应画布上的图像，方便观察
 void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     // 计算图像的最大最小坐标
-    double minX = DBL_MAX, minY = DBL_MAX, maxX = DBL_MIN, maxY = DBL_MIN;
-
+    DrawInfoRect rect = INITDRAWINFORECT;
     // 若没有图像
     if (img.endNum == 0) {
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
@@ -310,60 +472,13 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
     for (int i = 0; i < img.endNum; i++) {
         DrawInfo item = img.img[i];
-        switch (item.type) {
-        // MyLine和MyRectangle结构相同
-        case RECTANGLE:
-        case LINE:
-        {
-            if (item.line.start.x < item.line.end.x) {
-                if (item.line.start.x < minX) minX = item.line.start.x;
-                if (item.line.end.x > maxX) maxX = item.line.end.x;
-            }
-            else {
-                if (item.line.end.x < minX) minX = item.line.end.x;
-                if (item.line.start.x > maxX) maxX = item.line.start.x;
-            }
-
-            if (item.line.start.y < item.line.end.y) {
-                if (item.line.start.y < minY) minY = item.line.start.y;
-                if (item.line.end.y > maxY) maxY = item.line.end.y;
-            }
-            else {
-                if (item.line.end.y < minY) minY = item.line.end.y;
-                if (item.line.start.y > maxY) maxY = item.line.start.y;
-            }
-            
-            break;
-        }
-        case CIRCLE:
-        {
-            if (item.circle.center.x - item.circle.radius < minX) minX = item.circle.center.x - item.circle.radius;
-            if (item.circle.center.y - item.circle.radius < minY) minY = item.circle.center.y - item.circle.radius;
-            if (item.circle.center.x + item.circle.radius > maxX) maxX = item.circle.center.x + item.circle.radius;
-            if (item.circle.center.y + item.circle.radius > maxY) maxY = item.circle.center.y + item.circle.radius;
-            break;
-        }
-        case CURVE:
-        case BCURVE:
-        case FMULTILINE:
-        case MULTILINE:
-        {
-            for (int j = 0; j < item.multipoint.endNum; j++) {
-                if (item.multipoint.points[j].x == DBL_MAX || item.multipoint.points[j].y == DBL_MAX) continue;
-                if (item.multipoint.points[j].x < minX) minX = item.multipoint.points[j].x;
-                if (item.multipoint.points[j].y < minY) minY = item.multipoint.points[j].y;
-                if (item.multipoint.points[j].x > maxX) maxX = item.multipoint.points[j].x;
-                if (item.multipoint.points[j].y > maxY) maxY = item.multipoint.points[j].y;
-            }
-            break;
-        }
-        default:
-            break;
-        }
+        DrawInfoRect nowrect = INITDRAWINFORECT;
+        GetDrawInfoRect(&item, &nowrect);
+		LargestRect(&rect, &nowrect);
     }
 
     // 处理无效坐标情况
-    if (minX == DBL_MAX || minY == DBL_MAX || maxX == DBL_MAX || maxY == DBL_MAX) {
+    if (rect.minX == DBL_MAX || rect.minY == DBL_MAX || rect.maxX == -DBL_MAX || rect.maxY == -DBL_MAX) {
         // 没有有效的图形，设置默认坐标
         POINT center = { (canvasRect.right - canvasRect.left) / 2, (canvasRect.bottom - canvasRect.top) / 2 };
         SetCoordinate(coor, center, DEFAULTRADIUS); // 设置坐标系参数
@@ -371,15 +486,15 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
     }
 
     // 计算坐标系的中心点
-    double centerX = (minX + maxX) / 2;
-    double centerY = (minY + maxY) / 2;
+    double centerX = (rect.minX + rect.maxX) / 2;
+    double centerY = (rect.minY + rect.maxY) / 2;
 
     int canvasWidth = canvasRect.right - canvasRect.left;
     int canvasHeight = canvasRect.bottom - canvasRect.top;
 
     // 计算坐标系的半径
-    double radiusX = maxX - centerX;
-    double radiusY = maxY - centerY;
+    double radiusX = rect.maxX - centerX;
+    double radiusY = rect.maxY - centerY;
 
     double radius1 = radiusX / (canvasWidth / 2.0);
     double radius2 = radiusY / (canvasHeight / 2.0);
@@ -403,4 +518,59 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
 
     // 当前应该在中点
     pt = mapCoordinate(coor, centerX, centerY);
+}
+
+// DeBoor 递归计算
+double DeBoor(int i, int k, double u, std::vector<double>& ui) {
+    if (k == 0) {
+        return (u >= ui[i] && u < ui[i + 1]) ? 1.0 : 0.0;
+    }
+
+    double ai = (ui[i + k] != ui[i]) ? (u - ui[i]) / (ui[i + k] - ui[i]) : 0;
+    double bi = (ui[i + k + 1] != ui[i + 1]) ? (ui[i + k + 1] - u) / (ui[i + k + 1] - ui[i + 1]) : 0;
+    double uik1 = DeBoor(i, k - 1, u, ui);
+    double uik2 = DeBoor(i + 1, k - 1, u, ui);
+
+    return ai * uik1 + bi * uik2;
+}
+
+#define BCURVECALCPOINT     100
+
+// 均匀B样条计算
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree, int n) {
+    // 计算曲线上的点
+    std::vector<POINT> res(n);
+
+    if (points.size() < degree)
+        return res;
+
+	// 计算 ui, 范围为 [0, 1]
+    int sizep = points.size();
+    double num = sizep + degree;
+	std::vector<double> ui(num + 1);
+
+    // 初始化 ui
+	for (int i = 0; i <= num ; i++) {
+		ui[i] = i / num;
+	}
+
+    for (int i = 0; i < n; i++) {
+        double u = (double)i / (n - 1) * (ui[sizep] - ui[degree]) + ui[degree]; // 映射 u 的范围v
+        POINT p = { 0, 0 };
+
+        for (int j = 0; j < sizep; j++) {
+            double nij = DeBoor(j, degree, u, ui);
+            p.x += nij * points[j].x;
+            p.y += nij * points[j].y;
+        }
+
+        res[i] = p;
+    }
+
+	return res;
+}
+
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree) {
+	// 默认计算 100 个点
+	return CalcDeBoor(points, degree, BCURVECALCPOINT);
 }

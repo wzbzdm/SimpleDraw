@@ -68,10 +68,10 @@ public:
 		if (hTrackbar) {
 			// 设置子类化，确保在滑块获取焦点时移除虚线框
 			SetWindowSubclass(hTrackbar, TrackbarSubclassProc, 0, 0);
+			SendMessage(hTrackbar, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // 设置范围
+			SendMessage(hTrackbar, TBM_SETPOS, TRUE, 1); // 默认值
 		}
 
-		SendMessage(hTrackbar, TBM_SETRANGE, TRUE, MAKELPARAM(1, 100)); // 设置范围
-		SendMessage(hTrackbar, TBM_SETPOS, TRUE, 1); // 默认值
 		value = 1; // 初始化值
 
 		// 处理重绘
@@ -161,7 +161,7 @@ LRESULT CALLBACK SliderWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 	{
 		if (lParam == (LPARAM)slider->hTrackbar) {
 			// 获取滑块当前位置
-			int pos = SendMessage(slider->hTrackbar, TBM_GETPOS, 0, 0);
+			int pos = (int)SendMessage(slider->hTrackbar, TBM_GETPOS, 0, 0);
 			if (slider->value != pos) {
 				slider->value = pos;
 				SendMessage(GetParent(hWnd), CUSTOM_WIDTH_CHANGE, pos, 0);
@@ -514,7 +514,7 @@ public:
 
 	void UpdateType() {
 		// 获取当前选择项并更新 type
-		int index = SendMessage(Combox, CB_GETCURSEL, 0, 0);
+		int index = (int)SendMessage(Combox, CB_GETCURSEL, 0, 0);
 		switch (index) {
 		case 0:
 			type = SYSTEM;

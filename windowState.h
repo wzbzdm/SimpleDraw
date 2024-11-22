@@ -2,6 +2,10 @@
 #define WINDOWSIZE_H
 
 #include <Windows.h>
+#include <stack>
+
+#define HELPLINECORLOR	RGB(0, 0 , 255)
+#define HELPPOINTCOLOR	RGB(255, 0, 0)
 
 // 画布宽度和其他宽度
 #define OTHERW 200
@@ -14,9 +18,29 @@
 #define MINRADIUS			0.0001		// 最小缩放
 #define MAXRADIUS			10000		// 最大缩放
 #define RADIUSCHANGESPEED	0.001		// 缩放增速
+#define ANGLECHANGESPEED	0.0007		// 旋转速度
 #define FITRADIUS			1.5			// 适应屏幕时的倍率
 #define MINXPERZ			30			// 最小像素每刻度
 #define STEPSHOWNUM			4			// 多少个刻度下显示数据
+
+#define ILLEGELPOINT		-1
+#define INITPOINT			{ ILLEGELPOINT, ILLEGELPOINT}
+
+#define CanvasMode			1		// 画布模式
+#define CoordinateMode		2		// 坐标模式
+#define DEFAULTSYSTEMMODE	{ CoordinateMode }
+
+typedef struct SYSTEMMODE {
+	int worktype;
+} SYSTEMMODE;
+
+bool HFPoint(const POINT* pt) {
+	return pt->x != ILLEGELPOINT && pt->y != ILLEGELPOINT;
+}
+
+bool HFPoint(const POINT& pt) {
+	return pt.x != ILLEGELPOINT && pt.y != ILLEGELPOINT;
+}
 
 typedef struct windowState {
 	int width;
@@ -55,82 +79,122 @@ typedef enum DrawType {
 } DrawType;
 
 typedef enum KZDrawType {
+	KZNONE,
 	DRAWCX,				// 画垂线
 } KZDrawType;
 
-typedef struct MyDrawState {
-	DrawType type;
-	DrawType lastType;
-	KZDrawType kztype;
-	union {
-		POINT lastMMousemovePoint;
-		POINT lastLButtonPoint;
-	};
-} MyDrawState;
+typedef struct MyDrawState MyDrawState;
 
-// 合理绘图状态
-bool DrawStateInit(const MyDrawState& mst) {
-	return mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1;
+typedef void typeGo(MyDrawState& ms, DrawType type);
+typedef void typeBack(MyDrawState& ms);
+
+struct MyDrawState {
+	bool draw = false;				// 绘图中
+	bool mmove = false;				// mmove
+	bool chosen = false;			// 选中状态还是非选中
+	DrawType type = DrawType::CHOOSEIMG;
+	DrawType lastType = DrawType::CHOOSEIMG;
+	std::stack<DrawType> preType;
+	typeGo* go = nullptr;
+	typeBack* back = nullptr;
+	KZDrawType kztype = KZDrawType::KZNONE;
+	POINT lastMouseP = INITPOINT;
+	POINT lastMMouseBDown = INITPOINT;
+	POINT lastMMouseBUp = INITPOINT;
+	POINT lastLButtonDown = INITPOINT;
+	POINT lastLButtonUp = INITPOINT;
+
+	MyDrawState() = default;
+};
+
+POINT LButtomDP(const MyDrawState& mst) {
+	return mst.lastLButtonDown;
+}
+
+void LButtonDown(MyDrawState &mst, POINT point) {
+	mst.lastLButtonDown = point;
+}
+
+POINT LButtomUP(const MyDrawState& mst) {
+	return mst.lastLButtonUp;
+}
+
+void LButtonUp(MyDrawState &mst, POINT point) {
+	mst.lastLButtonUp = point;
+}
+
+POINT MButtomDP(const MyDrawState& mst) {
+	return mst.lastMMouseBDown;
+}
+
+void MMouseDown(MyDrawState &mst, POINT point) {
+	mst.lastMMouseBDown = point;
+}
+
+POINT MButtomUP(const MyDrawState& mst) {
+	return mst.lastMMouseBUp;
+}
+
+void MMouseUp(MyDrawState &mst, POINT point) {
+	mst.lastMMouseBUp;
+}
+
+POINT MButtomMP(const MyDrawState& mst) {
+	return mst.lastMouseP;
+}
+
+// TODO:
+void MouseMove(MyDrawState &mst, POINT point) {
+	mst.lastMouseP = point;
 }
 
 bool TwoPointDraw(const POINT& p1, const POINT& p2) {
-	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != -1 && p1.y != -1 && p2.x != -1 && p2.y != -1);
+	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != ILLEGELPOINT && p1.y != ILLEGELPOINT && p2.x != ILLEGELPOINT && p2.y != ILLEGELPOINT);
 }
 
-bool InDraw(const MyDrawState& mst) {
+bool InDrawState(const MyDrawState& mst) {
 	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
 }
 
-bool CanRefresh(MyDrawState& mst) {
-	switch (mst.type) {
-	case DRAWLINE:
-	case DRAWCIRCLE:
-	case DRAWRECTANGLE:
-	case DRAWCURVE:
-	case DRAWFMULTI:
-	case DRAWMULTILINE:
-	{
-		if (mst.lastLButtonPoint.x == -1 && mst.lastLButtonPoint.y == -1) {
-			return false;
-		} 
-		return true;
-	}
-	case CHOOSEN:
-	case CHOOSEIMG:
-	case MMOUSEMOVE:
-	{
-		return true;
-	}
-	case KZDRAW:
-		switch (mst.kztype) {
-		case DRAWCX:
-			return true;
-		}
-	default:
-		return true;
-	}
-	
+bool InState(const MyDrawState& mst, DrawType type) {
+	return mst.type == type;
 }
 
-void InitMyDrawState(MyDrawState& mst) {
-	mst.type = CHOOSEIMG;
-	mst.lastType = CHOOSEIMG;
-	mst.lastLButtonPoint = { -1, -1 };
-	mst.lastMMousemovePoint = { -1, -1 };
-}
-
-void setTypeWithLastType(MyDrawState& mst, DrawType type){
+void setTypeWithLastType(MyDrawState& mst, DrawType type) {
 	mst.lastType = mst.type;
 	mst.type = type;
-}
-
-void RestoreFormLastType(MyDrawState& mst) {
-	mst.lastLButtonPoint = { -1, -1 };
-	mst.type = mst.lastType;
+	mst.preType.push(type);
 }
 
 DrawType getType(MyDrawState& mst) {
 	return mst.type;
+}
+
+void ClearStateP(MyDrawState& mst) {
+	mst.lastLButtonDown = INITPOINT;
+	mst.lastLButtonUp = INITPOINT;
+	mst.lastMMouseBDown = INITPOINT;
+	mst.lastMMouseBUp = INITPOINT;
+	mst.lastMouseP = INITPOINT;
+}
+
+void RestoreFormLastType(MyDrawState& mst) {
+	if (mst.type == MMOUSEMOVE) {
+		ClearStateP(mst);
+		mst.type = mst.lastType;
+		mst.preType.pop();
+	}
+}
+
+void InitMyDrawState(MyDrawState& mst) {
+	mst.draw = false;
+	mst.mmove = false;
+	mst.chosen = false;
+	mst.type = CHOOSEIMG;
+	mst.lastType = CHOOSEIMG;
+	ClearStateP(mst);
+	mst.go = setTypeWithLastType;   // 初始化函数指针
+	mst.back = RestoreFormLastType; // 初始化函数指针
 }
 
 void setType(MyDrawState& mst, DrawType type) {
@@ -144,35 +208,41 @@ void setType(MyDrawState& mst, DrawType type) {
 	case DRAWFMULTI:
 	case DRAWCURVE:
 	case DRAWBCURVE:
-		mst.lastLButtonPoint = { -1, -1 };
+		ClearStateP(mst);
 		break;
 	default:
 		break;
 	}
 }
 
+void ClearType(MyDrawState& mst) {
+	if (mst.type == CHOOSEN) {
+		mst.type = CHOOSEIMG;
+	}
+	else {
+		setType(mst, mst.type);
+	}
+}
+
 void setKZType(MyDrawState& mst, KZDrawType type) {
 	mst.type = KZDRAW;
 	mst.kztype = type;
-	mst.lastLButtonPoint = { -1, -1 };
+	ClearStateP(mst);
 }
 
 void EndKZType(MyDrawState& mst) {
 	mst.type = CHOOSEIMG;
 }
 
-// 静态数据
-WindowState wstate = { 800, 650, 45 };
-
 void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrect, const int mode) {
 	int padding;
 	switch (mode) {
-	case 1:
+	case CanvasMode:
 	{
 		padding = 60;
 	}
 	break;
-	case 2:
+	case CoordinateMode:
 	{
 		padding = 0;
 	}
@@ -191,7 +261,7 @@ void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrec
 
 void RefreshWindowRect(WindowRect& wr, const int width, const int height, const int mode) {
 	switch (mode) {
-	case 1:
+	case CanvasMode:
 	{
 		// 工具栏保持高度不变，宽度适应主窗口
 		wr.mainrect = { 0, 0, width, height };
@@ -223,7 +293,7 @@ void RefreshWindowRect(WindowRect& wr, const int width, const int height, const 
 		wr.statusbar = { 0, wr.smallrect.y + wr.smallrect.height, width, STATUSBARHEIGHT };
 	}
 	break;
-	case 2:
+	case CoordinateMode:
 	{
 		// 工具栏保持高度不变，宽度适应主窗口
 		wr.mainrect = { 0, 0, width, height };
@@ -284,7 +354,7 @@ void SetCoordinate(Coordinate& coor, POINT center, const double radius) {
 }
 
 // 将坐标映射到画布上
-POINT mapCoordinate(Coordinate& coor, double x, double y) {
+POINT mapCoordinate(const Coordinate& coor, double x, double y) {
 	POINT pt;
 	pt.x = (LONG)(coor.center.x + x / coor.radius);
 	pt.y = (LONG)(coor.center.y - y / coor.radius);
@@ -292,7 +362,7 @@ POINT mapCoordinate(Coordinate& coor, double x, double y) {
 }
 
 // 将画布上的点映射到坐标系上
-void PointToCoordinate(Coordinate& coor, POINT& pt, double& x, double& y) {
+void PointToCoordinate(const Coordinate& coor, const POINT& pt, double& x, double& y) {
 	x = (pt.x - coor.center.x) * coor.radius;
 	y = (coor.center.y - pt.y) * coor.radius;
 }
@@ -321,4 +391,191 @@ void SetActiveID(ChooseState &cs, int id) {
 	cs.choose = id;
 }
 
+// 更改 drawing 的定义添加其他数据使重绘时更完善
+typedef struct DrawingInfo {
+	DrawInfo info;
+	MyPoint lastRem;	// 鼠标移除时的坐标
+} DrawingInfo;
+
+void InitDrawing(DrawingInfo *di) {
+	di->info.type = ImgType::NONE;
+	di->lastRem = { ILLEGELMYPOINT, ILLEGELMYPOINT };
+}
+
+void ClearDrawing(DrawingInfo* di) {
+	di->lastRem = INITPOINT;
+	switch (di->info.type) {
+	case LINE:
+		di->info.line.start = INITMYPOINT;
+		break;
+	case CIRCLE:
+		di->info.circle.center = INITMYPOINT;
+		break;
+	case RECTANGLE:
+		di->info.rectangle.start = INITMYPOINT;
+		break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+		// 清理空间
+		ClearMultipoint(&(di->info.multipoint));
+		break;
+	}
+}
+
+void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
+	if (&(di->info) == info) return;
+	info->type = di->info.type;
+	info->proper = di->info.proper;
+	switch (di->info.type) {
+	case LINE:
+	{
+		info->line = di->info.line;
+	}
+	break;
+	case CIRCLE:
+	{
+		info->circle = di->info.circle;
+	}
+	break;
+	case RECTANGLE:
+	{
+		info->rectangle = di->info.rectangle;
+	}
+	break;
+	case CURVE:
+	case BCURVE:
+	case MULTILINE:
+	case FMULTILINE:
+	{
+		InitFromMultipoint(&(info->multipoint), &(di->info.multipoint));
+	}
+	break;
+	default:
+		break;
+	}
+}
+
+#define HELPXLINERADIUS			1.2
+#define MINHIGHORWIDTH			30			// 最窄像素
+
+typedef enum DrawConfigMode {
+	ZOOM,			// 缩放
+	ROTATE			// 旋转
+} DrawConfigMode;
+
+typedef struct DrawConfig {
+	DrawConfigMode mode;
+} DrawConfig;
+
+typedef struct CSDrawInfo {
+	int index;
+	DrawConfig config;
+	DrawInfo choose;
+	DrawInfoRect rect;
+	CSDrawInfo() : index(-1), choose(), rect(), config() {};
+} CSDrawInfo;
+
+void ClearCSDrawConf(CSDrawInfo& csdraw) {
+	csdraw.config.mode = DrawConfigMode::ZOOM;
+}
+
+bool HasCSDraw(const CSDrawInfo& csdraw) {
+	return csdraw.index != -1;
+}
+
+void SetCSDrawMode(CSDrawInfo& csdraw, DrawConfigMode mode) {
+	csdraw.config.mode = mode;
+}
+
+void InitCSDrawInfo(CSDrawInfo& csdraw) {
+	csdraw.index = -1;
+}
+
+void ClearCSDrawInfo(CSDrawInfo& csdraw) {
+	if (csdraw.index != -1) {
+		ClearDrawInfo(&(csdraw.choose));
+		csdraw.index = -1;
+	}
+}
+
+// 右上角
+MyPoint GetRTMyPoint(const CSDrawInfo & csdraw) {
+	return { csdraw.rect.maxX, csdraw.rect.maxY };
+}
+
+// 右下角
+MyPoint GetRBMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.maxX, csdraw.rect.minY };
+}
+
+// 左上角
+MyPoint GetLTMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.minX, csdraw.rect.maxY };
+}
+
+// 左下角 
+MyPoint GetLBMyPoint(const CSDrawInfo& csdraw) {
+	return { csdraw.rect.minX, csdraw.rect.minY };
+}
+
+void FixMinWoH(CSDrawInfo& csdraw, const Coordinate &coor) {
+	if (csdraw.rect.maxX - csdraw.rect.minX < MINHIGHORWIDTH * coor.radius) {
+		double kz = (MINHIGHORWIDTH * coor.radius - (csdraw.rect.maxX - csdraw.rect.minX)) / 2;
+		csdraw.rect.maxX += kz;
+		csdraw.rect.minX -= kz;
+	}
+
+	if (csdraw.rect.maxY - csdraw.rect.minY < MINHIGHORWIDTH * coor.radius) {
+		double kz = (MINHIGHORWIDTH * coor.radius - (csdraw.rect.maxY - csdraw.rect.minY)) / 2;
+		csdraw.rect.maxY += kz;
+		csdraw.rect.minY -= kz;
+	}
+}
+
+void CalcCSDrawRect(CSDrawInfo& csdraw, const Coordinate& coor) {
+	csdraw.rect = INITDRAWINFORECT;
+	GetDrawInfoRect(&(csdraw.choose), &(csdraw.rect));
+	FixMinWoH(csdraw, coor);
+	MapDrawInfoRect(&(csdraw.rect), HELPXLINERADIUS);
+}
+
+void PopStoreImgToCSDraw(StoreImg& imgs, CSDrawInfo& csdraw, const Coordinate& coor) {
+	CopyDrawInfoFromImg(&imgs, &(csdraw.choose), csdraw.index);
+	RemoveDrawInfoFromStoreImg(&imgs, csdraw.index);
+	CalcCSDrawRect(csdraw, coor);
+}
+
+void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
+	SetDrawInfoToStoreImg(&imgs, &(csdraw.choose), csdraw.index);
+	ClearCSDrawInfo(csdraw);
+}
+
+void RefreshCSDrawPro(CSDrawInfo& csdraw, const DrawUnitProperty& dup) {
+	csdraw.choose.proper = dup;
+}
+
+// TODO: 工作区?
+// 静态数据
+SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
+WindowState wstate = { 800, 650, 45 };
+MyDrawState mst;		// 默认状态
+Coordinate coordinate;							// 坐标系
+StoreImg allImg;								// 存储所有的图形
+DrawingInfo drawing;							// 当前正在绘制的图形
+DrawUnitProperty customProperty;				// 自定义绘图
+WindowRect wrect;								// 各个组件的位置
+ChooseState cs;									// 工具栏状态维护
+CSDrawInfo csdraw;								// 被选中的图元
+
+HDC hdcMemFixed;			// 固定图像内存DC
+HDC hdcMemPreview;			// 预览图像内存DC
+HDC hdcMemCoS;				// 计算或选中图像内存DC
+HBITMAP hbmMemFixed;		// 固定图像位图
+HBITMAP hbmMemPreview;		// 预览图像位图
+HBITMAP hbmOldFixed;		// 原固定位图
+HBITMAP hbmOldPreview;		// 原预览位图
+HBITMAP hbmmemCoS;			// 计算或选中图像位图
+HBITMAP hbmOldCoS;			// 原计算或选中位图
 #endif // WINDOWSIZE_H

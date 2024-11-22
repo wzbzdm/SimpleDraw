@@ -150,9 +150,11 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="showRMenu.h" />
     <ClInclude Include="SimpleDraw.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="windowState.h" />
+    <ClInclude Include="ywljDraw.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -187,6 +189,9 @@
     <None Include="drawing.cur" />
     <None Include="idcmove.cur" />
     <None Include="README.md" />
+    <None Include="setup\setup.md" />
+    <None Include="setup\SimpleDraw.iss" />
+    <None Include="TODO.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

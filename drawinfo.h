@@ -14,6 +14,9 @@ extern "C" {
 #include <Windows.h>
 #include <cassert>
 
+#define ILLEGELMYPOINT	DBL_MAX
+#define INITMYPOINT		{ILLEGELMYPOINT, ILLEGELMYPOINT}
+
 // 最开始创建点数组时的大小，以后每次增加的大小5
 #define MAX_POINT 20
 #define ADD_POINT 10
@@ -22,11 +25,11 @@ extern "C" {
 #define MAX_IMG_NUM 30
 #define ADD_IMG_NUM 15
 
-#define IMG_HEADER "GTX"
-#define FILE_VERSION "1.4"
-
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
+
+	constexpr char IMG_HEADER[FILEHEADERL] =	"GTX";
+	constexpr char FILE_VERSION[FILEVERSIONL] = "1.4";
 
 #define BSPLINE				3
 			
@@ -77,6 +80,12 @@ extern "C" {
 		return (gctype)((gc & PADTYPEMASK) | type);
 	}
 
+// 绘图方式为系统API
+#define DEFAULTLINEWID		2				// 线宽为2
+#define DEFAULTLINECOR		0				// 黑色
+#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
+#define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
+
 	// 图元属性
 	typedef struct DrawUnitProperty {
 		unsigned int color;
@@ -84,6 +93,13 @@ extern "C" {
 		int width;
 		gctype type;	// 绘制方式
 	} DrawUnitProperty;
+
+	void InitDrawUnitPro(DrawUnitProperty* pro) {
+		pro->bgcolor = DEFAULTPADCOR;
+		pro->color = DEFAULTLINECOR;
+		pro->width = DEFAULTLINEWID;
+		pro->type = DEFAULTTYPE;
+	}
 
 	void SetColorWithColorRef(DrawUnitProperty *pro, COLORREF r) {
 		pro->color = r;
@@ -101,12 +117,6 @@ extern "C" {
 		pro->type = t;
 	}
 
-// 绘图方式为系统API
-#define DEFAULTLINEWID		2				// 线宽为2
-#define DEFAULTLINECOR		0				// 黑色
-#define DEFAULTPADCOR		0x000000ff		// 默认填充颜色
-#define DEFAULTDRAWPROPERTY {DEFAULTLINECOR, DEFAULTPADCOR, DEFAULTLINEWID, DEFAULTTYPE}
-
 	// 图元类型
 	typedef enum ImgType {
 		NONE,   // 删除或者无效的图像
@@ -123,6 +133,10 @@ extern "C" {
 		double x;
 		double y;
 	} MyPoint;
+
+	bool HFMyPoint(const MyPoint* mp) {
+		return mp->x != ILLEGELMYPOINT && mp->y != ILLEGELMYPOINT;
+	}
 
 	double Distance(MyPoint p1, MyPoint p2) {
 		return sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2));
@@ -159,7 +173,7 @@ extern "C" {
 	} MyRectangle;
 
 	double GetMinDPointToRectangle(MyPoint p, MyRectangle rect) {
-		double dis = DBL_MAX;
+		double dis = ILLEGELMYPOINT;
 		double left = min(rect.start.x, rect.end.x);
 		double right = max(rect.start.x, rect.end.x);
 		double top = max(rect.start.y, rect.end.y);
@@ -209,7 +223,7 @@ extern "C" {
 		if (multipoint->endNum == multipoint->numPoints) return;
 		int lastNull = 0;
 		for (int i = 0; i < multipoint->endNum; i++) {
-			if (multipoint->points[i].x == DBL_MAX && multipoint->points[i].y == DBL_MAX) continue;
+			if (!HFMyPoint(&(multipoint->points[i]))) continue;
 			multipoint->points[lastNull++] = multipoint->points[i];
 		}
 
@@ -218,7 +232,7 @@ extern "C" {
 	}
 
 	double GetMinDPointToMultipoint(MyPoint p, MyMultiPoint* multipoint) {
-		double dis = DBL_MAX;
+		double dis = ILLEGELMYPOINT;
 		ScanMultipoint(multipoint);
 		if (multipoint->endNum != multipoint->numPoints) {
 			return -1;
@@ -230,8 +244,19 @@ extern "C" {
 		return dis;
 	}
 
+	double GetMinDPointToFMultipoint(MyPoint p, MyMultiPoint* multipoint) {
+		double dis = GetMinDPointToMultipoint(p, multipoint);
+		MyLine end = { multipoint->points[0], multipoint->points[multipoint->numPoints - 1] };
+		dis = min(dis, DistanceToLine(p, end));
+
+		return dis;
+	}
+
 	void InitFromMultipoint(MyMultiPoint* multipoint, MyMultiPoint* another) {
+		if (multipoint == another) return;
+		if (!another) return;
 		multipoint->points = (MyPoint*)malloc(another->maxNum * sizeof(MyPoint));
+		if (!(multipoint->points)) return;
 		memcpy(multipoint->points, another->points, another->maxNum * sizeof(MyPoint));
 		multipoint->numPoints = another->numPoints;
 		multipoint->endNum = another->endNum;
@@ -256,9 +281,12 @@ extern "C" {
 
 		if (multipoint->numPoints == multipoint->maxNum) {
 			// 扩容
-			multipoint->points = (MyPoint*)realloc(multipoint->points, (multipoint->maxNum + ADD_POINT) * sizeof(MyPoint));
+			MyPoint* temp = (MyPoint*)realloc(multipoint->points, (multipoint->maxNum + ADD_POINT) * sizeof(MyPoint));
+			if (!temp) return;
+			multipoint->points = temp;
 			multipoint->maxNum += ADD_POINT;
 		}
+		if (!(multipoint->points)) return;
 		multipoint->points[multipoint->endNum++] = point;
 		multipoint->numPoints++;
 	}
@@ -267,8 +295,7 @@ extern "C" {
 		// 从后往前查找第一个匹配的点
 		for (int i = multipoint->endNum - 1; i >= 0; i--) {
 			if (multipoint->points[i].x == point.x && multipoint->points[i].y == point.y) {
-				multipoint->points[i].x = DBL_MAX;
-				multipoint->points[i].y = DBL_MAX;
+				multipoint->points[i] = INITMYPOINT;
 				multipoint->numPoints--; // 更新点的数量
 				break;
 			}
@@ -299,6 +326,7 @@ extern "C" {
 	}
 
 	void ClearMultipoint(MyMultiPoint* multipoint) {
+		if (!multipoint) return;
 		free(multipoint->points);
 		multipoint->points = NULL;
 		multipoint->numPoints = 0;
@@ -316,6 +344,27 @@ extern "C" {
 			MyMultiPoint multipoint;
 		};
 	} DrawInfo;
+
+	void setDrawInfoType(DrawInfo* di, ImgType it) {
+		di->type = it;
+		switch (it) {
+		case LINE:
+		{
+			di->line.start = INITMYPOINT;
+		}
+		break;
+		case CIRCLE:
+		{
+			di->circle.center = INITMYPOINT;
+		}
+		break;
+		case RECTANGLE:
+		{
+			di->rectangle.start = INITMYPOINT;
+		}
+		break;
+		}
+	}
 
 	void MoveInfoBy(DrawInfo* draw, double x, double y) {
 		switch (draw->type) {
@@ -347,7 +396,7 @@ extern "C" {
 		case FMULTILINE:
 		{
 			for (int i = 0; i < draw->multipoint.endNum; i++) {
-				if (draw->multipoint.points[i].x == DBL_MAX || draw->multipoint.points[i].y == DBL_MAX) continue;
+				if (!HFMyPoint(&(draw->multipoint.points[i]))) continue;
 				draw->multipoint.points[i].x += x;
 				draw->multipoint.points[i].y += y;
 			}
@@ -358,7 +407,7 @@ extern "C" {
 		}
 	}
 
-	void ClearDrawingImg(DrawInfo* drawing) {
+	void ClearDrawInfo(DrawInfo* drawing) {
 		switch (drawing->type) {
 		case CURVE:
 		case BCURVE:
@@ -381,6 +430,11 @@ extern "C" {
 		int endNum;             // 当前存储的最后一个数值在数组中的位置
 		int maxNum;			 // 当前数组的最大容量
 	} StoreImg;
+
+	typedef enum StoreImgCode {
+		OK,
+		ADDERROR,
+	} StoreImgCode;
 
 	void InitStoreImg(StoreImg* store) {
 		if (!store->img) {
@@ -416,15 +470,67 @@ extern "C" {
 
 		if (store->num == store->maxNum) {
 			// 扩容
-			store->img = (DrawInfo*)realloc(store->img, (store->maxNum + ADD_IMG_NUM) * sizeof(DrawInfo));
+			DrawInfo* temp = (DrawInfo*)realloc(store->img, (static_cast<unsigned long long>(store->maxNum) + ADD_IMG_NUM) * sizeof(DrawInfo));
+			if (!temp) return;
+			store->img = temp;
 			store->maxNum += ADD_IMG_NUM;
 		}
+		if (!store->img) return;
 		store->img[store->endNum++] = draw;
 		store->num++;
 	}
 
-	void RemoveDrawInfoFromStoreImg(StoreImg* store, DrawInfo draw) {
+	void CopyDrawInfoFromImg(StoreImg* store, DrawInfo* info, int index) {
+		DrawInfo *cs = &(store->img[index]);
+		info->type = cs->type;
+		info->proper = cs->proper;
+		switch (cs->type) {
+		case LINE:
+			info->line = cs->line;
+			break;
+		case CIRCLE:
+			info->circle = cs->circle;
+			break;
+		case RECTANGLE:
+			info->rectangle = cs->rectangle;
+			break;
+		case CURVE:
+		case BCURVE:
+		case MULTILINE:
+		case FMULTILINE:
+			InitFromMultipoint(&(info->multipoint), &(cs->multipoint));
+		}
+	}
 
+	void RemoveDrawInfoFromStoreImg(StoreImg* store, int index) {
+		DrawInfo* cs = &(store->img[index]);
+		if (cs->type != NONE) {
+			cs->type = NONE;
+			ClearDrawInfo(cs);
+		}
+	}
+
+	void SetDrawInfoToStoreImg(StoreImg* store, DrawInfo* info, int index) {
+		if (index >= store->endNum) return;
+		DrawInfo* cs = &(store->img[index]);
+		cs->type = info->type;
+		cs->proper = info->proper;
+		switch (info->type) {
+		case LINE:
+			cs->line = info->line;
+			break;
+		case CIRCLE:
+			cs->circle = info->circle;
+			break;
+		case RECTANGLE:
+			cs->rectangle = info->rectangle;
+			break;
+		case CURVE:
+		case BCURVE:
+		case MULTILINE:
+		case FMULTILINE:
+			InitFromMultipoint(&(cs->multipoint), &(info->multipoint));
+		}
 	}
 
 	void MoveDrawInfoTo(StoreImg* store, DrawInfo form, DrawInfo to) {
@@ -432,6 +538,9 @@ extern "C" {
 	}
 
 	void ClearStoreImg(StoreImg* store) {
+		for (int i = 0; i < store->endNum; i++) {
+			ClearDrawInfo(&(store->img[i]));
+		}
 		if (store->img) {
 			free(store->img);
 		}
@@ -441,6 +550,167 @@ extern "C" {
 		store->maxNum = MAX_IMG_NUM;
 	}
 
+	// TODO: 为什么C语言也支持引用
+	typedef struct DrawInfoRect {
+		double minX;
+		double minY;
+		double maxX;
+		double maxY;
+	} DrawInfoRect;
+
+#define INITDRAWINFORECT    { DBL_MAX, DBL_MAX, -DBL_MAX, -DBL_MAX  }
+
+	 void GetLineRect(const MyLine* line, DrawInfoRect* rect) {
+		if (line->start.x < line->end.x) {
+			if (line->start.x < rect->minX)
+			{
+				rect->minX = line->start.x;
+			}
+			if (line->end.x > rect->maxX)
+			{
+				rect->maxX = line->end.x;
+			}
+		}
+		else {
+			if (line->end.x < rect->minX)
+			{
+				rect->minX = line->end.x;
+			}
+			if (line->start.x > rect->maxX) {
+				rect->maxX = line->start.x;
+			}
+		}
+
+		if (line->start.y < line->end.y) {
+			if (line->start.y < rect->minY) {
+				rect->minY = line->start.y;
+			}
+			if (line->end.y > rect->maxY) {
+				rect->maxY = line->end.y;
+			}
+		}
+		else {
+			if (line->end.y < rect->minY) {
+				rect->minY = line->end.y;
+			}
+			if (line->start.y > rect->maxY)
+			{
+				rect->maxY = line->start.y;
+			}
+		}
+	}
+
+	void GetRectangleRect(const MyRectangle* rectangle, DrawInfoRect* rect) {
+		if (rectangle->start.x < rectangle->end.x) {
+			if (rectangle->start.x < rect->minX)
+			{
+				rect->minX = rectangle->start.x;
+			}
+			if (rectangle->end.x > rect->maxX)
+			{
+				rect->maxX = rectangle->end.x;
+			}
+			else {
+				int a = 1;
+			}
+		}
+		else {
+			if (rectangle->end.x < rect->minX)
+			{
+				rect->minX = rectangle->end.x;
+			}
+			if (rectangle->start.x > rect->maxX)
+			{
+				rect->maxX = rectangle->start.x;
+			}
+		}
+
+		if (rectangle->start.y < rectangle->end.y) {
+			if (rectangle->start.y < rect->minY)
+			{
+				rect->minY = rectangle->start.y;
+			}
+			if (rectangle->end.y > rect->maxY)
+			{
+				rect->maxY = rectangle->end.y;
+			}
+		}
+		else {
+			if (rectangle->end.y < rect->minY) {
+				rect->minY = rectangle->end.y;
+			}
+			if (rectangle->start.y > rect->maxY) {
+				rect->maxY = rectangle->start.y;
+			}
+		}
+	}
+
+	void GetCircleRect(const MyCircle* circle, DrawInfoRect* rect) {
+		if (circle->center.x - circle->radius < rect->minX) rect->minX = circle->center.x - circle->radius;
+		if (circle->center.y - circle->radius < rect->minY) rect->minY = circle->center.y - circle->radius;
+		if (circle->center.x + circle->radius > rect->maxX) rect->maxX = circle->center.x + circle->radius;
+		if (circle->center.y + circle->radius > rect->maxY) rect->maxY = circle->center.y + circle->radius;
+	}
+
+	void GetMultipointRect(const MyMultiPoint* multipoint, DrawInfoRect* rect) {
+		for (int i = 0; i < multipoint->endNum; i++) {
+			if (multipoint->points[i].x == ILLEGELMYPOINT || multipoint->points[i].y == ILLEGELMYPOINT) continue;
+			if (multipoint->points[i].x < rect->minX) rect->minX = multipoint->points[i].x;
+			if (multipoint->points[i].y < rect->minY) rect->minY = multipoint->points[i].y;
+			if (multipoint->points[i].x > rect->maxX) rect->maxX = multipoint->points[i].x;
+			if (multipoint->points[i].y > rect->maxY) rect->maxY = multipoint->points[i].y;
+		}
+	}
+
+	void GetDrawInfoRect(const DrawInfo* info, DrawInfoRect *rect) {
+		switch (info->type) {
+			// MyLine和MyRectangle结构相同
+		case RECTANGLE:
+		{
+			GetRectangleRect(&(info->rectangle), rect);
+			break;
+		}
+		case LINE:
+		{
+			GetLineRect(&(info->line), rect);
+			break;
+		}
+		case CIRCLE:
+		{
+			GetCircleRect(&(info->circle), rect);
+			break;
+		}
+		case CURVE:
+		case BCURVE:
+		case FMULTILINE:
+		case MULTILINE:
+		{
+			GetMultipointRect(&(info->multipoint), rect);
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	void LargestRect(DrawInfoRect* calc, const DrawInfoRect* another) {
+		calc->minX = min(calc->minX, another->minX);
+		calc->minY = min(calc->minY, another->minY);
+		calc->maxX = max(calc->maxX, another->maxX);
+		calc->maxY = max(calc->maxY, another->maxY);
+	}
+
+	// 将值从中心按照倍率缩放
+	void MapDrawInfoRect(DrawInfoRect* calc, double radius) {
+		double midX = (calc->minX + calc->maxX) / 2;
+		double midY = (calc->minY + calc->maxY) / 2;
+		calc->minX = midX + (calc->minX - midX) * radius;
+		calc->minY = midY + (calc->minY - midY) * radius;
+		calc->maxX = midX + (calc->maxX - midX) * radius;
+		calc->maxY = midY + (calc->maxY - midY) * radius;
+	}
+
+	///////////////////////////////////////////////// 文件处理
 	typedef unsigned char Byte;
 
 	void IntToByte(int value, Byte** buffer, int* size) {
@@ -617,6 +887,7 @@ extern "C" {
 	}
 
 	typedef enum FileOpenAndSave {
+		DIALOGOPENFAILE,
 		FILEOPENFAILE,
 		FILEVERSIONINVALID,
 		FILEHEADERINVALID,
@@ -627,9 +898,10 @@ extern "C" {
 
 	FileOpenAndSave StoreImgToFile(StoreImg* store, const wchar_t* filename) {
 		FILE* file;
-		if (_wfopen_s(&file, filename, L"wb") != 0) {
-			return FILEOPENFAILE;
-		}
+
+		_wfopen_s(&file, filename, L"wb");
+
+		if (!file) return FILEOPENFAILE;
 
 		// 写入GTX文件头
 		fwrite(IMG_HEADER, sizeof(char), FILEHEADERL - 1, file);
@@ -713,7 +985,15 @@ extern "C" {
 		Byte* buffer = (Byte*)malloc(imgSize * sizeof(Byte));
 		int index = 0;
 		// 读取剩余数据
-		fread(buffer, imgSize, 1, file);
+		if (buffer) {
+			fread(buffer, imgSize, 1, file);
+		}
+		else {
+			free(buffer);
+			fclose(file);
+			return MEMORRYALLOCFAIL;
+		}
+		
 		// 读取每个图像
 		for (int i = 0; i < store->endNum; i++) {
 			store->img[i] = BytesToDrawInfo(buffer, &index);

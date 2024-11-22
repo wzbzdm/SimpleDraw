@@ -1,6 +1,8 @@
 #pragma once
 
 #include "drawinfo.h"
+#include "windowState.h"
+#include "calculateImg.h"
 #include <vector>
 #include <algorithm>
 #include <thread>
@@ -16,6 +18,14 @@ void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width);
 void FillCircle(HDC hdc, int xc, int yc, int r, int color, int width);
 void ScanlineFill(HDC hdc, POINT* polygon, int n, int color);
 void FenceFill(HDC hdc, POINT* points, int n, int color);
+
+void DrawPoint(HDC hdc, int x, int y, int size, COLORREF color) {
+	HBRUSH brush = CreateSolidBrush(color);  // 创建填充颜色
+	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, brush);
+	Ellipse(hdc, x - size, y - size, x + size, y + size);  // 绘制圆
+	SelectObject(hdc, oldBrush);
+	DeleteObject(brush);
+}
 
 int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	LOGBRUSH lb;
@@ -34,13 +44,16 @@ int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	MoveToEx(hdc, start.x, start.y, NULL);
 	LineTo(hdc, end.x, end.y);
 
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+
 	return 0;
 }
 
-int DrawXLine(HDC hdc, POINT start, POINT end, int width) {
+int DrawXLine(HDC hdc, POINT start, POINT end, int color, int width) {
 	LOGBRUSH lb;
 	lb.lbStyle = BS_SOLID;
-	lb.lbColor = RGB(255, 0, 0); // 线条颜色
+	lb.lbColor = color; // 线条颜色
 	DWORD dashPattern[2] = { 10, 5 }; // 10个像素实线，5个像素空白
 	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, width, &lb, 2, dashPattern);
 	SelectObject(hdc, hPen);
@@ -53,6 +66,9 @@ int DrawXLine(HDC hdc, POINT start, POINT end, int width) {
 	SelectObject(hdc, hNullBrush);
 	MoveToEx(hdc, start.x, start.y, NULL);
 	LineTo(hdc, end.x, end.y);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
 
 	return 0;
 }
@@ -113,7 +129,7 @@ int StoreLineTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro)
 	return 0;
 }
 
-int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
+int DrawCircle(HDC hdc, POINT center, POINT rp, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
@@ -124,7 +140,7 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
 	SelectObject(hdc, hNullBrush);
 
-	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
+	int r = (int)sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
 	switch (DRAWTYPE(pro->type)) {
 	case DRAWSYSTEM:
 	{
@@ -158,7 +174,7 @@ int DrawCircle(HDC hdc, POINT center, POINT rp, DrawUnitProperty* pro) {
 	return 0;
 }
 
-int DrawCircle(HDC hdc, POINT center, double r, DrawUnitProperty* pro) {
+int DrawCircle(HDC hdc, POINT center, int r, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
@@ -214,7 +230,7 @@ int StoreCircleTo(StoreImg* sti, MyPoint center, MyPoint rp, DrawUnitProperty pr
 	return 0;
 }
 
-int DrawRectangle(HDC hdc, POINT start, POINT end, DrawUnitProperty* pro) {
+int DrawRectangle(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
 	// 创建无色画刷
@@ -243,7 +259,7 @@ int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty
 	return 0;
 }
 
-int DrawMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+int DrawMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pro) {
 	for (int i = 0; i < length - 1; i++) {
 		DrawLine(hdc, start[i], start[i + 1], pro);
 	}
@@ -266,7 +282,7 @@ int PadColor(HDC hdc, POINT* point, int length, int color, int type) {
 	return 0;
 }
 
-int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
+int DrawFMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pro) {
 	// 先填充颜色
 	PadColor(hdc, start, length, pro->bgcolor, pro->type);
 	for (int i = 0; i < length; i++) {
@@ -274,6 +290,105 @@ int DrawFMultiLine(HDC hdc, POINT* start, int length, DrawUnitProperty* pro) {
 	}
 
 	return 0;
+}
+
+void DrawMyPoint(HDC hdc, const MyPoint& mp, int size, COLORREF color) {
+	POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+	DrawPoint(hdc, p.x, p.y, size, color);
+}
+
+void DrawLineHelp(HDC hdc, const MyLine& line, int size, COLORREF color) {
+	DrawMyPoint(hdc, line.start, size, color);
+	DrawMyPoint(hdc, line.end, size, color);
+}
+
+void DrawCircleHelp(HDC hdc, const MyCircle& circle, int size, COLORREF color) {
+	DrawMyPoint(hdc, circle.center, size, color);
+}
+
+void DrawRectangleHelp(HDC hdc, const MyRectangle& rectangle, int size, COLORREF color) {
+	DrawMyPoint(hdc, rectangle.start, size, color);
+	DrawMyPoint(hdc, rectangle.end, size, color);
+	MyPoint next1 = { rectangle.start.x, rectangle.end.y };
+	MyPoint next2 = { rectangle.end.x, rectangle.start.y };
+	DrawMyPoint(hdc, next1, size, color);
+	DrawMyPoint(hdc, next2, size, color);
+}
+
+// 没有虚线版本
+void DrawMultiPointHelpNoL(HDC hdc, const MyMultiPoint* points) {
+	// 所有点
+	for (int i = 0; i < points->endNum; i++) {
+		MyPoint mp = points->points[i];
+		if (HFMyPoint(&mp)) {
+			POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+			DrawPoint(hdc, p.x, p.y, 3, HELPPOINTCOLOR);
+		}
+	}
+}
+
+// 画所有虚线
+void DrawMultiPointHelpXline(HDC hdc, const MyMultiPoint* points, bool f) {
+	POINT firstp;
+	POINT endp;
+	POINT lastp;
+	int lasti = 0;
+	for (int i = 0; i < points->endNum; i++) {
+		lasti = i;
+		if (HFMyPoint(&(points->points[i]))) break;
+	}
+	lastp = mapCoordinate(coordinate, points->points[lasti].x, points->points[lasti].y);
+	firstp = lastp;
+
+	for (int i = lasti + 1; i < points->endNum - 1; i++) {
+		MyPoint mp = points->points[i];
+		if (HFMyPoint(&mp)) {
+			POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+			DrawXLine(hdc, lastp, p, HELPLINECORLOR, 1);
+			lastp = p;
+			endp = p;
+		}
+	}
+
+	if (f) {
+		DrawXLine(hdc, firstp, lastp, HELPLINECORLOR, 1);
+	}
+}
+
+// 有虚线版本
+void DrawMultiPointHelp(HDC hdc, const MyMultiPoint* points, bool f) {
+	DrawMultiPointHelpNoL(hdc, points);
+	// 画虚线
+	DrawMultiPointHelpXline(hdc, points, f);
+}
+
+void DrawBCurveHelp(HDC hdc, POINT* points, int degree, int n) {
+	// 画虚线
+	for (int i = 0; i < n - 1; i++) {
+		DrawXLine(hdc, points[i], points[i + 1], HELPLINECORLOR, 1);
+	}
+
+	// 画隔一个点的虚线
+	for (int i = 0; i < n - 2; i++) {
+		DrawXLine(hdc, points[i], points[i + 2], HELPLINECORLOR, 1);
+	}
+
+	// 隔一个的线的中点与两个点之间的点相连
+	POINT mid;
+	POINT third;
+	int r = degree;
+	for (int i = 0; i < n - 2; i++) {
+		mid.x = (points[i].x + points[i + 2].x) / 2;
+		mid.y = (points[i].y + points[i + 2].y) / 2;
+		DrawXLine(hdc, mid, points[i + 1], HELPLINECORLOR, 1);
+
+		// 将中点和其三分一处标红
+		third.x = (points[i + 1].x * (r - 1) + mid.x) / r;
+		third.y = (points[i + 1].y * (r - 1) + mid.y) / r;
+
+		DrawPoint(hdc, mid.x, mid.y, 3, HELPPOINTCOLOR);
+		DrawPoint(hdc, third.x, third.y, 3, HELPPOINTCOLOR);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////// 实验要求
@@ -510,14 +625,6 @@ void SetPixelPoint(HDC hdc, int x, int y, int color) {
 	SetPixel(hdc, x, y, color);
 }
 
-void DrawPoint(HDC hdc, int x, int y, int size, COLORREF color) {
-	HBRUSH brush = CreateSolidBrush(color);  // 创建填充颜色
-	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, brush);
-	Ellipse(hdc, x - size, y - size, x + size, y + size);  // 绘制圆
-	SelectObject(hdc, oldBrush);
-	DeleteObject(brush);
-}
-
 // 扫描线填充函数
 void ScanlineFill(HDC hdc, POINT* polygon, int n, int color) {
 	// 找到多边形的最小和最大 Y 值
@@ -638,5 +745,26 @@ void FenceFill(HDC hdc, POINT* points, int n, int color) {
 				SetPixelPoint(hdc, x, y, color);
 			}
 		}
+	}
+}
+
+// 任意阶均匀B样条计算
+void DrawBCurveDeBoor(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro) {
+	// 将指针转化为 vector
+	std::vector<POINT> points(controlPoints, controlPoints + n);
+
+	// 计算 B 样条曲线上的点, 默认 100 个点
+	std::vector<POINT> curvePoints = CalcDeBoor(points, degree);
+
+	if (curvePoints.size() == 0) return;
+
+	if (curvePoints.size() == 1) {
+		DrawPoint(hdc, curvePoints[0].x, curvePoints[0].y, 3, pro->color);
+		return;
+	}
+
+	// 绘制 B 样条曲线
+	for (size_t i = 0; i < curvePoints.size() - 1; ++i) {
+		DrawLine(hdc, curvePoints[i], curvePoints[i + 1], pro);
 	}
 }
