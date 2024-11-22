@@ -909,17 +909,17 @@ double GetRadiusFromWParam(WPARAM wParam) {
 	return exp(scaleFactor * zDelta);
 }
 
-void RefreshRadius(WPARAM wParam) {
+void RefreshRadius(double radius) {
 	// 使用指数缩放，确保 radius 始终大于0
-	coordinate.radius *= 1.0 / GetRadiusFromWParam(wParam);
+	coordinate.radius /= radius;
 
 	// 防止缩放比例过小或过大
-	if (coordinate.radius < MINRADIUS) {
-		coordinate.radius = MINRADIUS; // 限制最小缩放比例
-	}
-	else if (coordinate.radius > MAXRADIUS) {
-		coordinate.radius = MAXRADIUS; // 限制最大缩放比例
-	}
+	//if (coordinate.radius < MINRADIUS) {
+	//	coordinate.radius = MINRADIUS; // 限制最小缩放比例
+	//}
+	//else if (coordinate.radius > MAXRADIUS) {
+	//	coordinate.radius = MAXRADIUS; // 限制最大缩放比例
+	//}
 	return;
 }
 
@@ -991,3 +991,6 @@ void ZoomCSDrawMyPoint(const MyPoint& center, double scale) {
 	CalcCSDrawRect(csdraw, coordinate);
 }
 
+void ZoomWindowCoordinate(const POINT& pt, double scale) {
+	ZoomCoordinate(coordinate, pt, scale);
+}

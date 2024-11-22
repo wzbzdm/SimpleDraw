@@ -4,6 +4,8 @@
 #include "windowState.h"
 #include <vector>
 
+#define POPMENUINTERVAL     5
+
 #define MENU_LINE_CX 101
 #define SIDM_OPTION2 102
 #define SIDM_EXIT    103
@@ -34,12 +36,21 @@ typedef enum RigthMenuType {
 
 } RigthMenuType;
 
+typedef struct RightMenuStyle {
+    int xinterval;
+} RightMenuStyle;
+
+void InitMenuStyle(RightMenuStyle& style, int xinterval) {
+	style.xinterval = xinterval;
+}
+
 typedef struct RightMenuManager {
     std::vector<MenuItemData> rightMenuData;
     RigthMenuType rightMenuType;
+    RightMenuStyle style;
     HMENU rightPopMenu;
 	HWND hwnd;
-	RightMenuManager() : rightMenuType(RigthMenuInit), rightPopMenu(NULL), hwnd(NULL) {}
+	RightMenuManager() : rightMenuType(RigthMenuInit), style({0}), rightPopMenu(NULL), hwnd(NULL) {}
 } RightMenuManager;
 
 void MENUHANDLERNONE() {
@@ -95,6 +106,8 @@ void AddMenuItem(RightMenuManager& manager, int id, const wchar_t* text, MenuIte
 }
 
 void InitRightMenuNone(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, 0);
+
     MenuItemData data;
     data.handler = (MenuItemHandler)&MenuTest;
     data.type = HANDLER_HWND;
@@ -108,6 +121,8 @@ void MenuLineCX(HWND hwnd) {
 }
 
 void InitRightMenuLine(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
     MenuItemData data;
 	data.handler = (MenuItemHandler)&MenuLineCX;
 	data.type = HANDLER_HWND;
@@ -144,10 +159,14 @@ void InitRightMenu(RightMenuManager& manager, RigthMenuType type) {
     }
 }
 
+void CustomTrackPopupMenu(RightMenuManager& manager, POINT pt) {
+	TrackPopupMenu(manager.rightPopMenu, TPM_RIGHTBUTTON, pt.x + manager.style.xinterval, pt.y, 0, manager.hwnd, NULL);
+}
+
 void ShowMenu(RightMenuManager& manager, POINT pt, RigthMenuType type) {
     ClientToScreen(manager.hwnd, &pt);
 	if (manager.rightMenuType != type) {
         InitRightMenu(manager, type);
 	}
-    TrackPopupMenu(manager.rightPopMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, manager.hwnd, NULL);
+	CustomTrackPopupMenu(manager, pt);
 }

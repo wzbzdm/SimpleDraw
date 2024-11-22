@@ -37,6 +37,10 @@ bool HFPoint(const POINT* pt) {
 	return pt->x != ILLEGELPOINT && pt->y != ILLEGELPOINT;
 }
 
+bool HFPoint(const POINT& pt) {
+	return pt.x != ILLEGELPOINT && pt.y != ILLEGELPOINT;
+}
+
 typedef struct windowState {
 	int width;
 	int height;
@@ -102,20 +106,40 @@ struct MyDrawState {
 	MyDrawState() = default;
 };
 
+POINT LButtomDP(const MyDrawState& mst) {
+	return mst.lastLButtonDown;
+}
+
 void LButtonDown(MyDrawState &mst, POINT point) {
 	mst.lastLButtonDown = point;
+}
+
+POINT LButtomUP(const MyDrawState& mst) {
+	return mst.lastLButtonUp;
 }
 
 void LButtonUp(MyDrawState &mst, POINT point) {
 	mst.lastLButtonUp = point;
 }
 
+POINT MButtomDP(const MyDrawState& mst) {
+	return mst.lastMMouseBDown;
+}
+
 void MMouseDown(MyDrawState &mst, POINT point) {
 	mst.lastMMouseBDown = point;
 }
 
+POINT MButtomUP(const MyDrawState& mst) {
+	return mst.lastMMouseBUp;
+}
+
 void MMouseUp(MyDrawState &mst, POINT point) {
 	mst.lastMMouseBUp;
+}
+
+POINT MButtomMP(const MyDrawState& mst) {
+	return mst.lastMouseP;
 }
 
 // TODO:
@@ -187,6 +211,15 @@ void setType(MyDrawState& mst, DrawType type) {
 		break;
 	default:
 		break;
+	}
+}
+
+void ClearType(MyDrawState& mst) {
+	if (mst.type == CHOOSEN) {
+		mst.type = CHOOSEIMG;
+	}
+	else {
+		setType(mst, mst.type);
 	}
 }
 

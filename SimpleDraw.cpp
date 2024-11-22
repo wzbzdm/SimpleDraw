@@ -596,8 +596,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case CLEARIMG:
 		{
-			setType(mst, mst.type);
+			ClearType(mst);
 			ClearDrawing(&(drawing));		// 清空当前绘制的图形
+			ClearCSDrawInfo(csdraw);		// 清除选中信息
 			ClearStoreImg(&allImg);			// 清空图形
 			ClearContent(hdcMemPreview);	// 清空预览画布
 			ClearContent(hdcMemCoS);		// 清空计算或选中画布
@@ -1678,6 +1679,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case CHOOSEN:
 		{
 			if (IsChosen()) {
+				if (!HFPoint(MButtomMP(mst))) break;
 				ClearContent(hdcMemPreview);
 				// 更新图元位置
 				MoveCSDrawInPoint(x, y);
@@ -1899,11 +1901,17 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			break;
 		}
 
-		// 鼠标位置状态栏
-		UpdateStatusBarCoordinates(mp.x, mp.y);
+		// scale
+		double scale = GetRadiusFromWParam(wParam);
 
 		// 放大时,坐标系radius减小，缩小时，坐标系radius增大
-		RefreshRadius(wParam);
+		RefreshRadius(scale);
+
+		// 更新 center
+		ZoomWindowCoordinate(point, scale);
+
+		// 鼠标位置状态栏
+		UpdateStatusBarCoordinates(mp.x, mp.y);
 
 		// 更新Radius
 		UpdateStatusBarRadius(coordinate.radius);

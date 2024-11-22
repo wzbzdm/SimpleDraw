@@ -293,6 +293,11 @@ void ZoomMyPoint(MyPoint &p, const MyPoint &center, double scale) {
 	p.y = center.y + (p.y - center.y) * scale;
 }
 
+void ZoomPoint(POINT& p, const POINT& center, double scale) {
+    p.x = center.x + (p.x - center.x) * scale;
+    p.y = center.y + (p.y - center.y) * scale;
+}
+
 // TODO: 缩放图元, 根据缩放比例，缩放所有坐标
 void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
 	if (scale == 1.0) return;
@@ -330,6 +335,10 @@ void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
     }
     break;
     }
+}
+
+void ZoomCoordinate(Coordinate& coor, const POINT& pt, double scale) {
+    ZoomPoint(coor.center, pt, scale);
 }
 
 void RotateMyPoint(MyPoint& p, const MyPoint center, double angle) {
