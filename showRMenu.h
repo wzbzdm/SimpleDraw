@@ -5,10 +5,7 @@
 #include <vector>
 
 #define POPMENUINTERVAL     5
-
-#define MENU_LINE_CX 101
-#define SIDM_OPTION2 102
-#define SIDM_EXIT    103
+#define IDBASE      100
 
 #define ARGS_NONE        0
 typedef void (*MenuItemHandlerN)();
@@ -16,12 +13,15 @@ typedef void (*MenuItemHandlerN)();
 #define ARGS_HWND        1
 typedef void (*MenuItemHandlerH)(HWND hwnd);
 
+#define ARGS_CSDRAW	  2
+typedef void (*MenuItemHandlerC)(CSDrawInfo* csdraw);
+
 typedef void* MenuItemHandler;
 
 typedef enum HandlerType {
 	HANDLER_NONE = ARGS_NONE,
     HANDLER_HWND = ARGS_HWND,
-
+	HANDLER_CSDRAW = ARGS_CSDRAW,
 } HandlerType;
 
 typedef struct MenuItemData {
@@ -45,12 +45,13 @@ void InitMenuStyle(RightMenuStyle& style, int xinterval) {
 }
 
 typedef struct RightMenuManager {
+    int id;
     std::vector<MenuItemData> rightMenuData;
     RigthMenuType rightMenuType;
     RightMenuStyle style;
     HMENU rightPopMenu;
 	HWND hwnd;
-	RightMenuManager() : rightMenuType(RigthMenuInit), style({0}), rightPopMenu(NULL), hwnd(NULL) {}
+	RightMenuManager() : id(IDBASE), rightMenuType(RigthMenuInit), style({0}), rightPopMenu(NULL), hwnd(NULL) {}
 } RightMenuManager;
 
 void MENUHANDLERNONE() {
@@ -60,6 +61,14 @@ void MENUHANDLERNONE() {
 MenuItemData MENUITEMDATANULL = { (MenuItemHandler)MENUHANDLERNONE, HANDLER_NONE };
 
 RightMenuManager rmenuManager;
+
+void SetCSDrawZoom(CSDrawInfo& csdraw) {
+	SetCSDrawMode(csdraw, ZOOM);
+}
+
+void SetCSDrawRotate(CSDrawInfo& csdraw) {
+	SetCSDrawMode(csdraw, ROTATE);
+}
 
 void MenuTest(HWND hwnd) {
 	MessageBox(hwnd, L"测试", L"测试", MB_OK);
@@ -78,6 +87,7 @@ void DestroyRightMenuM(RightMenuManager& manager) {
 }
 
 void ClearRightMenu(RightMenuManager& manager) {
+    manager.id = IDBASE;
     // 如果右键菜单已经存在，先清空菜单内容
     if (manager.rightPopMenu) {
         // 删除现有菜单项
@@ -92,7 +102,7 @@ void ClearRightMenu(RightMenuManager& manager) {
     }
 }
 
-void AddMenuItem(RightMenuManager& manager, int id, const wchar_t* text, MenuItemData data) {
+void AddMenuItem(RightMenuManager& manager, const wchar_t* text, MenuItemData data) {
     MENUITEMINFO itemInfo;
     ZeroMemory(&itemInfo, sizeof(MENUITEMINFO));
     itemInfo.cbSize = sizeof(MENUITEMINFO);
@@ -101,8 +111,21 @@ void AddMenuItem(RightMenuManager& manager, int id, const wchar_t* text, MenuIte
     itemInfo.dwItemData = (ULONG_PTR)index;
 
     manager.rightMenuData.push_back(data);
-    AppendMenu(manager.rightPopMenu, MF_STRING, id, text);
-    int s = SetMenuItemInfo(manager.rightPopMenu, id, FALSE, &itemInfo);
+    AppendMenu(manager.rightPopMenu, MF_STRING, manager.id, text);
+    int s = SetMenuItemInfo(manager.rightPopMenu, manager.id++, FALSE, &itemInfo);
+}
+
+void InitBaseMenu(RightMenuManager& manager) {
+	MenuItemData data;
+	data.handler = (MenuItemHandler)SetCSDrawZoom;
+	data.type = HANDLER_CSDRAW;
+
+	AddMenuItem(manager, L"缩放", data);
+
+	data.handler = (MenuItemHandler)SetCSDrawRotate;
+	AddMenuItem(manager, L"旋转", data);
+
+    AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }
 
 void InitRightMenuNone(RightMenuManager& manager) {
@@ -112,7 +135,7 @@ void InitRightMenuNone(RightMenuManager& manager) {
     data.handler = (MenuItemHandler)&MenuTest;
     data.type = HANDLER_HWND;
 
-    AddMenuItem(manager, SIDM_OPTION2, L"测试", data);
+    AddMenuItem(manager, L"测试", data);
 }
 
 // 进入垂线的绘制
@@ -123,10 +146,12 @@ void MenuLineCX(HWND hwnd) {
 void InitRightMenuLine(RightMenuManager& manager) {
 	InitMenuStyle(manager.style, POPMENUINTERVAL);
 
+    InitBaseMenu(manager);
+
     MenuItemData data;
 	data.handler = (MenuItemHandler)&MenuLineCX;
 	data.type = HANDLER_HWND;
-    AddMenuItem(manager, MENU_LINE_CX, L"作垂线", data);
+    AddMenuItem(manager, L"作垂线", data);
 
     AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }

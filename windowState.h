@@ -18,6 +18,7 @@
 #define MINRADIUS			0.0001		// 最小缩放
 #define MAXRADIUS			10000		// 最大缩放
 #define RADIUSCHANGESPEED	0.001		// 缩放增速
+#define ANGLECHANGESPEED	0.001		// 旋转速度
 #define FITRADIUS			1.5			// 适应屏幕时的倍率
 #define MINXPERZ			30			// 最小像素每刻度
 #define STEPSHOWNUM			4			// 多少个刻度下显示数据
@@ -459,12 +460,30 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 #define HELPXLINERADIUS			1.2
 #define MINHIGHORWIDTH			30			// 最窄像素
 
+typedef enum DrawConfigMode {
+	ZOOM,			// 缩放
+	ROTATE			// 旋转
+} DrawConfigMode;
+
+typedef struct DrawConfig {
+	DrawConfigMode mode;
+} DrawConfig;
+
 typedef struct CSDrawInfo {
 	int index;
+	DrawConfig config;
 	DrawInfo choose;
 	DrawInfoRect rect;
-	CSDrawInfo() : index(-1), choose(), rect() {};
+	CSDrawInfo() : index(-1), choose(), rect(), config() {};
 } CSDrawInfo;
+
+bool HasCSDraw(const CSDrawInfo& csdraw) {
+	return csdraw.index != -1;
+}
+
+void SetCSDrawMode(CSDrawInfo& csdraw, DrawConfigMode mode) {
+	csdraw.config.mode = mode;
+}
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
 	csdraw.index = -1;
@@ -545,4 +564,14 @@ DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 工具栏状态维护
 CSDrawInfo csdraw;								// 被选中的图元
+
+HDC hdcMemFixed;			// 固定图像内存DC
+HDC hdcMemPreview;			// 预览图像内存DC
+HDC hdcMemCoS;				// 计算或选中图像内存DC
+HBITMAP hbmMemFixed;		// 固定图像位图
+HBITMAP hbmMemPreview;		// 预览图像位图
+HBITMAP hbmOldFixed;		// 原固定位图
+HBITMAP hbmOldPreview;		// 原预览位图
+HBITMAP hbmmemCoS;			// 计算或选中图像位图
+HBITMAP hbmOldCoS;			// 原计算或选中位图
 #endif // WINDOWSIZE_H

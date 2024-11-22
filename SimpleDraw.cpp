@@ -38,16 +38,6 @@ HWND Edit1, Edit2;
 HWND Button;
 HWND bgColorSlider, ColorSlider, WidthSlider, TypeCombo;			// 新增控件变量
 
-HDC hdcMemFixed;			// 固定图像内存DC
-HDC hdcMemPreview;			// 预览图像内存DC
-HDC hdcMemCoS;				// 计算或选中图像内存DC
-HBITMAP hbmMemFixed;		// 固定图像位图
-HBITMAP hbmMemPreview;		// 预览图像位图
-HBITMAP hbmOldFixed;		// 原固定位图
-HBITMAP hbmOldPreview;		// 原预览位图
-HBITMAP hbmmemCoS;			// 计算或选中图像位图
-HBITMAP hbmOldCoS;			// 原计算或选中位图
-
 // 全局变量用于保存光标的原始样式
 HCURSOR originalCursor;
 HCURSOR customCursor;		// 全局变量保存自定义光标句柄
@@ -77,7 +67,6 @@ void				FitCanvasCoordinate();
 void 				LoadMyCustomCuser();
 void				ClearCSState();
 void				Cleanup();
-
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -464,35 +453,6 @@ BOOL InitStatusInstance(HINSTANCE hInstance, int nCmdShow) {
 	return TRUE;
 }
 
-// 更新状态栏中的坐标
-void UpdateStatusBarCoordinates(double x, double y) {
-	wchar_t textX[100], textY[100];
-
-	// 更新 X 坐标文本
-	swprintf_s(textX, L"X: %.2f", x);
-	PostMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)textX);
-
-	// 更新 Y 坐标文本
-	swprintf_s(textY, L"Y: %.2f", y);
-	PostMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)textY);
-
-	return;
-}
-
-void UpdateStatusBarRadius(double r) {
-	wchar_t textR[100];
-
-	swprintf_s(textR, L"R: %f", r);
-	PostMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)textR);
-
-	return;
-}
-
-void UpdateStatusBarText(const wchar_t* text) {
-	PostMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)text);
-	return;
-}
-
 //  目标: 处理主窗口的消息。
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -532,7 +492,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case SAVEOK:
 				break;
 			default:
-				UpdateStatusBarText(L"文件保存失败");
+				UpdateStatusBarText(hStatusBar, L"文件保存失败");
 				break;
 			}
 			break;
@@ -578,16 +538,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				NeedRedraw();
 				break;
 			case DIALOGOPENFAILE:
-				UpdateStatusBarText(L"对话框打开失败");
+				UpdateStatusBarText(hStatusBar, L"对话框打开失败");
 				break;
 			case FILEHEADERINVALID:
-				UpdateStatusBarText(L"文件头部无效");
+				UpdateStatusBarText(hStatusBar, L"文件头部无效");
 				break;
 			case FILEVERSIONINVALID:
-				UpdateStatusBarText(L"文件版本无效");
+				UpdateStatusBarText(hStatusBar, L"文件版本无效");
 				break;
 			case FILEOPENFAILE:
-				UpdateStatusBarText(L"文件打开失败");
+				UpdateStatusBarText(hStatusBar, L"文件打开失败");
 				break;
 			case MEMORRYALLOCFAIL:
 				break;
@@ -746,7 +706,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// TODO: 工作区完成可以拖动多个文件
 		UINT maxCount = 1;
 		if (fileCount > maxCount) {
-			UpdateStatusBarText(L"只能处理一个文件");
+			UpdateStatusBarText(hStatusBar, L"只能处理一个文件");
 			DragFinish(hDrop); // 释放内存
 			break;
 		}
@@ -832,7 +792,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	case WM_LBUTTONDOWN:
 	{
 		if (!InDraw(mst)) {
-			UpdateStatusBarText(L"请进入绘图模式再输入坐标!");
+			UpdateStatusBarText(hStatusBar, L"请进入绘图模式再输入坐标!");
 		}
 		break;
 	}
@@ -979,15 +939,6 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	return 0;
 }
 
-// 清空预览画布
-void ClearContent(HDC hdc) {
-	RECT rect;
-	GetClientRect(hCanvasWnd, &rect);
-	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
-	FillRect(hdc, &rect, hBrush);
-	DeleteObject(hBrush);
-}
-
 // 画布窗口，处理具体的画图逻辑，使用文件存储绘制的图像，方便重绘和对图像进行操作等
 LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1043,7 +994,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		hNullBrush = CreateBrushIndirect(&lbb);
 		// 创建黑色画刷
 		hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
-		UpdateStatusBarRadius(coordinate.radius);
+		UpdateStatusBarRadius(hStatusBar, coordinate.radius);
 
 		break;
 	}
@@ -1089,6 +1040,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			break;
 		case HANDLER_HWND:
 			((MenuItemHandlerH)data.handler)(hCWnd);
+			break;
+		case HANDLER_CSDRAW:
+			((MenuItemHandlerC)data.handler)(&csdraw);
 			break;
 		}
 		
@@ -1668,7 +1622,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		MyPoint mp;
 		PointToCoordinate(coordinate, point, mp.x, mp.y);
 		// 鼠标位置状态栏
-		UpdateStatusBarCoordinates(mp.x, mp.y);
+		UpdateStatusBarCoordinates(hStatusBar, mp.x, mp.y);
 
 		// 获得移动距离
 		int x = point.x - mst.lastMouseP.x;
@@ -1885,47 +1839,23 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_MOUSEWHEEL:
 	{
-		// 获取鼠标点击的位置
 		POINT point = getClientPos(hCWnd);
 
 		MyPoint mp;
 		PointToCoordinate(coordinate, point, mp.x, mp.y);
+		
+		MouseWheel(hCWnd, point, wParam);
 
-		if (MyPointCSDraw(mp)) {
-			double radius = GetRadiusFromWParam(wParam);
-			ZoomCSDrawMyPoint(mp, radius);
-			RedrawCoSContent(hCWnd, hdcMemCoS);
-			ClearContent(hdcMemPreview);
-			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			NeedRedraw();
-			break;
-		}
-
-		// scale
-		double scale = GetRadiusFromWParam(wParam);
-
-		// 放大时,坐标系radius减小，缩小时，坐标系radius增大
-		RefreshRadius(scale);
-
-		// 更新 center
-		ZoomWindowCoordinate(point, scale);
-
-		// 鼠标位置状态栏
-		UpdateStatusBarCoordinates(mp.x, mp.y);
-
-		// 更新Radius
-		UpdateStatusBarRadius(coordinate.radius);
-
-		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
 		RedrawCoSContent(hCWnd, hdcMemCoS);
 		ClearContent(hdcMemPreview);
 		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 
-		// 触发鼠标移动事件
-		LPARAM l = MAKELPARAM(point.x, point.y);
-		WPARAM w = 0;
-		PostMessage(hCWnd, WM_MOUSEMOVE, w, l);
-		// 重新绘制窗口（触发 WM_PAINT）
+		// 鼠标位置状态栏
+		UpdateStatusBarCoordinates(hStatusBar, mp.x, mp.y);
+
+		// 更新Radius
+		UpdateStatusBarRadius(hStatusBar, coordinate.radius);
+
 		NeedRedraw();
 		break;
 	}
@@ -2026,6 +1956,15 @@ void LoadMyCustomCuser() {
 	moveCursor = LoadCursor(hInst, MAKEINTRESOURCE(IDC_MOVE));
 
 	return;
+}
+
+// 清空预览画布
+void ClearContent(HDC hdc) {
+	RECT rect;
+	GetClientRect(hCanvasWnd, &rect);
+	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
+	FillRect(hdc, &rect, hBrush);
+	DeleteObject(hBrush);
 }
 
 void ClearCSState() {
