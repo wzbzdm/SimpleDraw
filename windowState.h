@@ -18,7 +18,7 @@
 #define MINRADIUS			0.0001		// 最小缩放
 #define MAXRADIUS			10000		// 最大缩放
 #define RADIUSCHANGESPEED	0.001		// 缩放增速
-#define ANGLECHANGESPEED	0.001		// 旋转速度
+#define ANGLECHANGESPEED	0.0007		// 旋转速度
 #define FITRADIUS			1.5			// 适应屏幕时的倍率
 #define MINXPERZ			30			// 最小像素每刻度
 #define STEPSHOWNUM			4			// 多少个刻度下显示数据

@@ -1571,16 +1571,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 获得右上角坐标
 			MyPoint mp = GetRTMyPoint(csdraw);
 			POINT rtp = mapCoordinate(coordinate, mp.x, mp.y);
-			switch (choose.type) {
-			case LINE:
-			{
-				ShowMenu(rmenuManager, rtp, RigthMenuLine);
-				//setKZType(mst, DRAWCX);
-			}
-			break;
-			default:
-				break;
-			}
+
+			ShowMenuType(rmenuManager, rtp, choose.type);
 			break;
 		}
 		case KZDRAW:

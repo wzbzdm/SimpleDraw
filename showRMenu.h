@@ -33,7 +33,12 @@ typedef enum RigthMenuType {
     RigthMenuInit,
     RightMenuNone,
     RigthMenuLine,
-
+    RightMenuCircle,
+	RightMenuRectangle,
+	RightMenuCurve,
+	RightMenuBCurve,
+	RightMenuMultiLine,
+	RightMenuFMultiLine,
 } RigthMenuType;
 
 typedef struct RightMenuStyle {
@@ -156,6 +161,54 @@ void InitRightMenuLine(RightMenuManager& manager) {
     AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }
 
+void InitRightMenuCircle(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
+void InitRightMenuRectangle(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
+void InitRightMenuCurve(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
+void InitRightMenuBCurve(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
+void InitRightMenuMultiLine(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
+void InitRightMenuFMultiLine(RightMenuManager& manager) {
+	InitMenuStyle(manager.style, POPMENUINTERVAL);
+
+	InitBaseMenu(manager);
+
+	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
+}
+
 MenuItemData GetMenuItemData(RightMenuManager& manager, UINT item) {
     MENUITEMINFO itemInfo;
     ZeroMemory(&itemInfo, sizeof(MENUITEMINFO));
@@ -178,9 +231,41 @@ void InitRightMenu(RightMenuManager& manager, RigthMenuType type) {
         InitRightMenuNone(manager);
         break;
     }
-	case RigthMenuLine:
-		InitRightMenuLine(manager);
-		break;
+    case RigthMenuLine:
+        InitRightMenuLine(manager);
+        break;
+    case RightMenuCircle:
+    {
+        InitRightMenuCircle(manager);
+        break;
+    }
+    case RightMenuRectangle:
+    {
+        InitRightMenuRectangle(manager);
+        break;
+    }
+    case RightMenuCurve:
+    {
+        InitRightMenuCurve(manager);
+        break;
+    }
+    case RightMenuBCurve:
+    {
+        InitRightMenuBCurve(manager);
+        break;
+    }
+    case RightMenuMultiLine:
+    {
+        InitRightMenuMultiLine(manager);
+        break;
+    }
+    case RightMenuFMultiLine:
+    {
+        InitRightMenuFMultiLine(manager);
+        break;
+    }
+    default:
+        break;
     }
 }
 
@@ -194,4 +279,47 @@ void ShowMenu(RightMenuManager& manager, POINT pt, RigthMenuType type) {
         InitRightMenu(manager, type);
 	}
 	CustomTrackPopupMenu(manager, pt);
+}
+
+void ShowMenuType(RightMenuManager& manager, POINT pt, ImgType type) {
+    switch (type) {
+    case LINE:
+    {
+        ShowMenu(rmenuManager, pt, RigthMenuLine);
+        break;
+    }
+    case CIRCLE:
+    {
+		ShowMenu(rmenuManager, pt, RightMenuCircle);
+        break;
+    }
+    case RECTANGLE:
+    {
+        ShowMenu(rmenuManager, pt, RightMenuRectangle);
+        break;
+    }
+    case CURVE:
+    {
+        ShowMenu(rmenuManager, pt, RightMenuCurve);
+        break;
+    }
+    case BCURVE:
+    {
+        ShowMenu(rmenuManager, pt, RightMenuBCurve);
+        break;
+    }
+    case MULTILINE:
+    {
+        ShowMenu(rmenuManager, pt, RightMenuMultiLine);
+        break;
+    }
+	case FMULTILINE:
+	{
+        ShowMenu(rmenuManager, pt, RightMenuFMultiLine);
+		break;
+	}
+    default:
+        break;
+    }
+    
 }
