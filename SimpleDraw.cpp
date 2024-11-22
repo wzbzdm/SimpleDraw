@@ -791,7 +791,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 	case WM_LBUTTONDOWN:
 	{
-		if (!InDraw(mst)) {
+		if (!InDrawState(mst)) {
 			UpdateStatusBarText(hStatusBar, L"请进入绘图模式再输入坐标!");
 		}
 		break;
@@ -880,7 +880,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	}
 	case CUSTOM_DRAWSTATE_CHANGE:
 	{
-		if (InDraw(mst)) {
+		if (InDrawState(mst)) {
 			EnableWindow(Edit1, TRUE);
 			EnableWindow(Edit2, TRUE);
 			EnableWindow(Button, TRUE);
@@ -890,6 +890,9 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			EnableWindow(Edit2, FALSE);
 			EnableWindow(Button, FALSE);
 		}
+
+		// 清空 CSDraw 的设置
+		ClearCSDrawConf(csdraw);
 
 		if (InDraw()) {
 			SendMessage(hCanvasWnd, WM_RBUTTONDOWN, NULL, (LPARAM)RBUTTOMDOWNCUSTOM);
@@ -907,7 +910,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 		// 判断按钮是否被点击
 		if (LOWORD(wParam) == 1) {
-			if (!InDraw(mst)) break;
+			if (!InDrawState(mst)) break;
 			// 确定被点击
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
@@ -925,7 +928,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			SetWindowText(Edit2, L"");
 		}
 		else if (HIWORD(wParam) == EN_CHANGE) {
-			if (!InDraw(mst)) break;
+			if (!InDrawState(mst)) break;
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
 			PostMessage(hCanvasWnd, WM_MOUSEMOVE, 0, MAKELPARAM(pt.x, pt.y));

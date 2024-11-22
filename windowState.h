@@ -152,7 +152,7 @@ bool TwoPointDraw(const POINT& p1, const POINT& p2) {
 	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != ILLEGELPOINT && p1.y != ILLEGELPOINT && p2.x != ILLEGELPOINT && p2.y != ILLEGELPOINT);
 }
 
-bool InDraw(const MyDrawState& mst) {
+bool InDrawState(const MyDrawState& mst) {
 	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
 }
 
@@ -476,6 +476,10 @@ typedef struct CSDrawInfo {
 	DrawInfoRect rect;
 	CSDrawInfo() : index(-1), choose(), rect(), config() {};
 } CSDrawInfo;
+
+void ClearCSDrawConf(CSDrawInfo& csdraw) {
+	csdraw.config.mode = DrawConfigMode::ZOOM;
+}
 
 bool HasCSDraw(const CSDrawInfo& csdraw) {
 	return csdraw.index != -1;
