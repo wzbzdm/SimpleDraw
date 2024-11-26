@@ -18,6 +18,7 @@
 #define MINRADIUS			0.0001		// 最小缩放
 #define MAXRADIUS			10000		// 最大缩放
 #define RADIUSCHANGESPEED	0.001		// 缩放增速
+#define ANGLECHANGESPEED	0.0007		// 旋转速度
 #define FITRADIUS			1.5			// 适应屏幕时的倍率
 #define MINXPERZ			30			// 最小像素每刻度
 #define STEPSHOWNUM			4			// 多少个刻度下显示数据
@@ -35,6 +36,10 @@ typedef struct SYSTEMMODE {
 
 bool HFPoint(const POINT* pt) {
 	return pt->x != ILLEGELPOINT && pt->y != ILLEGELPOINT;
+}
+
+bool HFPoint(const POINT& pt) {
+	return pt.x != ILLEGELPOINT && pt.y != ILLEGELPOINT;
 }
 
 typedef struct windowState {
@@ -73,6 +78,26 @@ typedef enum DrawType {
 	KZDRAW,				// 扩展功能
 } DrawType;
 
+#define GETDRAWTYPE(type)  ((DrawType)type)
+
+bool InDrawDrawType(const DrawType& type) {
+	switch (type) {
+	case CHOOSEIMG:
+	case CHOOSEN:
+	case MMOUSEMOVE:
+		return false;
+	case KZDRAW:
+	case DRAWLINE:
+	case DRAWCIRCLE:
+	case DRAWRECTANGLE:
+	case DRAWMULTILINE:
+	case DRAWFMULTI:
+	case DRAWBCURVE:
+	case DRAWCURVE:
+		return true;
+	}
+}
+
 typedef enum KZDrawType {
 	KZNONE,
 	DRAWCX,				// 画垂线
@@ -84,6 +109,7 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
+	bool choose = false;			// 选择状态
 	bool draw = false;				// 绘图中
 	bool mmove = false;				// mmove
 	bool chosen = false;			// 选中状态还是非选中
@@ -102,20 +128,44 @@ struct MyDrawState {
 	MyDrawState() = default;
 };
 
+void StartChoose(MyDrawState& mst) {
+	mst.choose = true;
+}
+
+POINT LButtomDP(const MyDrawState& mst) {
+	return mst.lastLButtonDown;
+}
+
 void LButtonDown(MyDrawState &mst, POINT point) {
 	mst.lastLButtonDown = point;
+}
+
+POINT LButtomUP(const MyDrawState& mst) {
+	return mst.lastLButtonUp;
 }
 
 void LButtonUp(MyDrawState &mst, POINT point) {
 	mst.lastLButtonUp = point;
 }
 
+POINT MButtomDP(const MyDrawState& mst) {
+	return mst.lastMMouseBDown;
+}
+
 void MMouseDown(MyDrawState &mst, POINT point) {
 	mst.lastMMouseBDown = point;
 }
 
+POINT MButtomUP(const MyDrawState& mst) {
+	return mst.lastMMouseBUp;
+}
+
 void MMouseUp(MyDrawState &mst, POINT point) {
 	mst.lastMMouseBUp;
+}
+
+POINT MButtomMP(const MyDrawState& mst) {
+	return mst.lastMouseP;
 }
 
 // TODO:
@@ -127,8 +177,8 @@ bool TwoPointDraw(const POINT& p1, const POINT& p2) {
 	return (p1.x != p2.x || p1.y != p2.y) && (p1.x != ILLEGELPOINT && p1.y != ILLEGELPOINT && p2.x != ILLEGELPOINT && p2.y != ILLEGELPOINT);
 }
 
-bool InDraw(const MyDrawState& mst) {
-	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
+bool InDrawState(const MyDrawState& mst) {
+	return InDrawDrawType(mst.type);
 }
 
 bool InState(const MyDrawState& mst, DrawType type) {
@@ -187,6 +237,15 @@ void setType(MyDrawState& mst, DrawType type) {
 		break;
 	default:
 		break;
+	}
+}
+
+void ClearType(MyDrawState& mst) {
+	if (mst.type == CHOOSEN) {
+		mst.type = CHOOSEIMG;
+	}
+	else {
+		setType(mst, mst.type);
 	}
 }
 
@@ -426,12 +485,34 @@ void InitDrawInfo(DrawingInfo* di, DrawInfo *info) {
 #define HELPXLINERADIUS			1.2
 #define MINHIGHORWIDTH			30			// 最窄像素
 
+typedef enum DrawConfigMode {
+	ZOOM,			// 缩放
+	ROTATE			// 旋转
+} DrawConfigMode;
+
+typedef struct DrawConfig {
+	DrawConfigMode mode;
+} DrawConfig;
+
 typedef struct CSDrawInfo {
-	int index = -1;
+	int index;
+	DrawConfig config;
 	DrawInfo choose;
 	DrawInfoRect rect;
-	CSDrawInfo() = default;
+	CSDrawInfo() : index(-1), choose(), rect(), config() {};
 } CSDrawInfo;
+
+void ClearCSDrawConf(CSDrawInfo& csdraw) {
+	csdraw.config.mode = DrawConfigMode::ZOOM;
+}
+
+bool HasCSDraw(const CSDrawInfo& csdraw) {
+	return csdraw.index != -1;
+}
+
+void SetCSDrawMode(CSDrawInfo& csdraw, DrawConfigMode mode) {
+	csdraw.config.mode = mode;
+}
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
 	csdraw.index = -1;
@@ -496,6 +577,10 @@ void RestoreCSDraw(StoreImg& imgs, CSDrawInfo& csdraw) {
 	ClearCSDrawInfo(csdraw);
 }
 
+void RefreshCSDrawPro(CSDrawInfo& csdraw, const DrawUnitProperty& dup) {
+	csdraw.choose.proper = dup;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
@@ -508,4 +593,14 @@ DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 工具栏状态维护
 CSDrawInfo csdraw;								// 被选中的图元
+
+HDC hdcMemFixed;			// 固定图像内存DC
+HDC hdcMemPreview;			// 预览图像内存DC
+HDC hdcMemCoS;				// 计算或选中图像内存DC
+HBITMAP hbmMemFixed;		// 固定图像位图
+HBITMAP hbmMemPreview;		// 预览图像位图
+HBITMAP hbmOldFixed;		// 原固定位图
+HBITMAP hbmOldPreview;		// 原预览位图
+HBITMAP hbmmemCoS;			// 计算或选中图像位图
+HBITMAP hbmOldCoS;			// 原计算或选中位图
 #endif // WINDOWSIZE_H

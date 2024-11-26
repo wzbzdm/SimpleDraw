@@ -293,6 +293,11 @@ void ZoomMyPoint(MyPoint &p, const MyPoint &center, double scale) {
 	p.y = center.y + (p.y - center.y) * scale;
 }
 
+void ZoomPoint(POINT& p, const POINT& center, double scale) {
+    p.x = center.x + (p.x - center.x) * scale;
+    p.y = center.y + (p.y - center.y) * scale;
+}
+
 // TODO: 缩放图元, 根据缩放比例，缩放所有坐标
 void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
 	if (scale == 1.0) return;
@@ -330,6 +335,10 @@ void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
     }
     break;
     }
+}
+
+void ZoomCoordinate(Coordinate& coor, const POINT& pt, double scale) {
+    ZoomPoint(coor.center, pt, scale);
 }
 
 void RotateMyPoint(MyPoint& p, const MyPoint center, double angle) {
@@ -509,4 +518,168 @@ void FitCoordinate(Coordinate& coor, StoreImg& img, RECT canvasRect) {
 
     // 当前应该在中点
     pt = mapCoordinate(coor, centerX, centerY);
+}
+
+// DeBoor 递归计算
+double DeBoor(int i, int k, double u, std::vector<double>& ui) {
+    if (k == 0) {
+        return (u >= ui[i] && u < ui[i + 1]) ? 1.0 : 0.0;
+    }
+
+    double ai = (ui[i + k] != ui[i]) ? (u - ui[i]) / (ui[i + k] - ui[i]) : 0;
+    double bi = (ui[i + k + 1] != ui[i + 1]) ? (ui[i + k + 1] - u) / (ui[i + k + 1] - ui[i + 1]) : 0;
+    double uik1 = DeBoor(i, k - 1, u, ui);
+    double uik2 = DeBoor(i + 1, k - 1, u, ui);
+
+    return ai * uik1 + bi * uik2;
+}
+
+#define BCURVECALCPOINT     100
+
+// 均匀B样条计算
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree, int n) {
+    // 计算曲线上的点
+    std::vector<POINT> res(n);
+
+    if (points.size() < degree)
+        return res;
+
+	// 计算 ui, 范围为 [0, 1]
+    int sizep = points.size();
+    double num = sizep + degree;
+	std::vector<double> ui(num + 1);
+
+    // 初始化 ui
+	for (int i = 0; i <= num ; i++) {
+		ui[i] = i / num;
+	}
+
+    for (int i = 0; i < n; i++) {
+        double u = (double)i / (n - 1) * (ui[sizep] - ui[degree]) + ui[degree]; // 映射 u 的范围v
+        POINT p = { 0, 0 };
+
+        for (int j = 0; j < sizep; j++) {
+            double nij = DeBoor(j, degree, u, ui);
+            p.x += nij * points[j].x;
+            p.y += nij * points[j].y;
+        }
+
+        res[i] = p;
+    }
+
+	return res;
+}
+
+std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree) {
+	// 默认计算 100 个点
+	return CalcDeBoor(points, degree, BCURVECALCPOINT);
+}
+
+// 判断点是否在矩形内
+bool IsInside(RECT rect, POINT pt) {
+    return pt.x >= rect.left && pt.x <= rect.right &&
+        pt.y >= rect.top && pt.y <= rect.bottom;
+}
+
+// 中点分割裁剪函数
+bool MidpointClipLine(RECT clipRect, POINT& p1, POINT& p2) {
+    if (IsInside(clipRect, p1) && IsInside(clipRect, p2)) {
+        return true; // 完全在内部，保留
+    }
+    if ((p1.x < clipRect.left && p2.x < clipRect.left) ||
+        (p1.x > clipRect.right && p2.x > clipRect.right) ||
+        (p1.y < clipRect.top && p2.y < clipRect.top) ||
+        (p1.y > clipRect.bottom && p2.y > clipRect.bottom)) {
+        return false; // 完全在外部，舍弃
+    }
+
+    // 递归裁剪中点
+    POINT mid = { (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 };
+    return MidpointClipLine(clipRect, p1, mid) && MidpointClipLine(clipRect, mid, p2);
+}
+
+// 判断点是否在某条裁剪边内
+bool Inside(POINT p, RECT clipRect, int edge) {
+    switch (edge) {
+    case 0: return p.y >= clipRect.top;    // 上边
+    case 1: return p.x <= clipRect.right; // 右边
+    case 2: return p.y <= clipRect.bottom;// 下边
+    case 3: return p.x >= clipRect.left;  // 左边
+    }
+    return false;
+}
+
+// 求交点
+POINT Intersect(POINT p1, POINT p2, RECT clipRect, int edge) {
+    POINT inter;
+    if (edge == 0) { // 上边
+        inter.x = p1.x + (p2.x - p1.x) * (clipRect.top - p1.y) / (p2.y - p1.y);
+        inter.y = clipRect.top;
+    }
+    else if (edge == 1) { // 右边
+        inter.y = p1.y + (p2.y - p1.y) * (clipRect.right - p1.x) / (p2.x - p1.x);
+        inter.x = clipRect.right;
+    }
+    else if (edge == 2) { // 下边
+        inter.x = p1.x + (p2.x - p1.x) * (clipRect.bottom - p1.y) / (p2.y - p1.y);
+        inter.y = clipRect.bottom;
+    }
+    else if (edge == 3) { // 左边
+        inter.y = p1.y + (p2.y - p1.y) * (clipRect.left - p1.x) / (p2.x - p1.x);
+        inter.x = clipRect.left;
+    }
+    return inter;
+}
+
+// Sutherland-Hodgman多边形裁剪
+std::vector<POINT> SutherlandHodgman(RECT clipRect, std::vector<POINT> polygon) {
+    for (int edge = 0; edge < 4; edge++) {
+        std::vector<POINT> newPolygon;
+        POINT prev = polygon.back();
+
+        for (const auto& cur : polygon) {
+            if (Inside(cur, clipRect, edge)) {
+                if (!Inside(prev, clipRect, edge)) {
+                    newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+                }
+                newPolygon.push_back(cur);
+            }
+            else if (Inside(prev, clipRect, edge)) {
+                newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+            }
+            prev = cur;
+        }
+        polygon = newPolygon;
+    }
+    return polygon;
+}
+
+std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon) {
+    std::vector<POINT> clippedPolygon;
+    std::vector<POINT> intersectionPoints;
+
+    for (int edge = 0; edge < 4; edge++) {
+        std::vector<POINT> newPolygon;
+        POINT prev = polygon.back();
+
+        for (const POINT& cur : polygon) {
+            if (Inside(cur, clipRect, edge)) {
+                if (!Inside(prev, clipRect, edge)) {
+                    // 添加入口点
+                    newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+                }
+                newPolygon.push_back(cur); // 添加内部点
+            }
+            else if (Inside(prev, clipRect, edge)) {
+                // 添加出口点
+                newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+            }
+            prev = cur;
+        }
+        polygon = newPolygon;
+    }
+
+    // 对结果进行排序、去重，形成最终的裁剪多边形
+    clippedPolygon = polygon;
+    return clippedPolygon;
 }

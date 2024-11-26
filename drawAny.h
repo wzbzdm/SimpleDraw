@@ -2,6 +2,7 @@
 
 #include "drawinfo.h"
 #include "windowState.h"
+#include "calculateImg.h"
 #include <vector>
 #include <algorithm>
 #include <thread>
@@ -96,7 +97,9 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 			BresenhamLine(hdc, start.x, start.y, end.x, end.y, pro->color);
 		}
 		else {
-			FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
+			MoveToEx(hdc, start.x, start.y, NULL);
+			LineTo(hdc, end.x, end.y);
+			//FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 		}
 	}
 	break;
@@ -106,7 +109,9 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 			MidpointLine(hdc, start.x, start.y, end.x, end.y, pro->color);
 		}
 		else {
-			FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
+			MoveToEx(hdc, start.x, start.y, NULL);
+			LineTo(hdc, end.x, end.y);
+			//FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 		}
 	}
 	break;
@@ -115,10 +120,6 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
-}
-
-void DrawLineHelp(HDC hdc, const MyLine* line) {
-
 }
 
 int StoreLineTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
@@ -221,10 +222,6 @@ int DrawCircle(HDC hdc, POINT center, int r, const DrawUnitProperty* pro) {
 	return 0;
 }
 
-void DrawCircleHelp(HDC hdc, const MyCircle *circle) {
-
-}
-
 int StoreCircleTo(StoreImg* sti, MyPoint center, MyPoint rp, DrawUnitProperty pro) {
 	double r = sqrt((center.x - rp.x) * (center.x - rp.x) + (center.y - rp.y) * (center.y - rp.y));
 	DrawInfo item;
@@ -253,10 +250,6 @@ int DrawRectangle(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) 
 	DeleteObject(hPen);
 	DeleteObject(hNullBrush);
 	return 0;
-}
-
-void DrawRectangleHelp(HDC hdc, const MyRectangle *rectangle) {
-
 }
 
 int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
@@ -301,6 +294,29 @@ int DrawFMultiLine(HDC hdc, POINT* start, int length, const DrawUnitProperty* pr
 	}
 
 	return 0;
+}
+
+void DrawMyPoint(HDC hdc, const MyPoint& mp, int size, COLORREF color) {
+	POINT p = mapCoordinate(coordinate, mp.x, mp.y);
+	DrawPoint(hdc, p.x, p.y, size, color);
+}
+
+void DrawLineHelp(HDC hdc, const MyLine& line, int size, COLORREF color) {
+	DrawMyPoint(hdc, line.start, size, color);
+	DrawMyPoint(hdc, line.end, size, color);
+}
+
+void DrawCircleHelp(HDC hdc, const MyCircle& circle, int size, COLORREF color) {
+	DrawMyPoint(hdc, circle.center, size, color);
+}
+
+void DrawRectangleHelp(HDC hdc, const MyRectangle& rectangle, int size, COLORREF color) {
+	DrawMyPoint(hdc, rectangle.start, size, color);
+	DrawMyPoint(hdc, rectangle.end, size, color);
+	MyPoint next1 = { rectangle.start.x, rectangle.end.y };
+	MyPoint next2 = { rectangle.end.x, rectangle.start.y };
+	DrawMyPoint(hdc, next1, size, color);
+	DrawMyPoint(hdc, next2, size, color);
 }
 
 // 没有虚线版本
@@ -427,16 +443,15 @@ void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
 	}
 }
 
+// TODO: 改正逻辑
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width) {
 	int dx = x1 - x0;
 	int dy = y1 - y0;
 	int d = dy - (dx / 2);
 	int x = x0, y = y0;
 
-	// 计算线段的法向量
-	double length = sqrt(dx * dx + dy * dy);
-	double offsetX = -dy / length * (width / 2);
-	double offsetY = dx / length * (width / 2);
+	int offsetX = width / 2;
+	int offsetY = width / 2;
 
 	// 确定直线的四个边界点
 	POINT polygon[4] = {
@@ -733,5 +748,26 @@ void FenceFill(HDC hdc, POINT* points, int n, int color) {
 				SetPixelPoint(hdc, x, y, color);
 			}
 		}
+	}
+}
+
+// 任意阶均匀B样条计算
+void DrawBCurveDeBoor(HDC hdc, POINT* controlPoints, int degree, int n, const DrawUnitProperty* pro) {
+	// 将指针转化为 vector
+	std::vector<POINT> points(controlPoints, controlPoints + n);
+
+	// 计算 B 样条曲线上的点, 默认 100 个点
+	std::vector<POINT> curvePoints = CalcDeBoor(points, degree);
+
+	if (curvePoints.size() == 0) return;
+
+	if (curvePoints.size() == 1) {
+		DrawPoint(hdc, curvePoints[0].x, curvePoints[0].y, 3, pro->color);
+		return;
+	}
+
+	// 绘制 B 样条曲线
+	for (size_t i = 0; i < curvePoints.size() - 1; ++i) {
+		DrawLine(hdc, curvePoints[i], curvePoints[i + 1], pro);
 	}
 }

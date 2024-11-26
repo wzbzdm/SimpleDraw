@@ -6,6 +6,8 @@
 #include "windowState.h"
 #include "calculateImg.h"
 
+#define DLLPATH		L"DLL"
+
 using namespace Gdiplus;
 
 ULONG_PTR gdiplusToken;  // GDI+ 初始化令牌
@@ -464,21 +466,23 @@ void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
 	DrawDrawInfoRect(hdc, csdraw->rect);
 	switch (csdraw->choose.type) {
 	case LINE:
+		DrawLineHelp(hdc, csdraw->choose.line, 3, HELPPOINTCOLOR);
 		break;
 	case RECTANGLE:
+		DrawRectangleHelp(hdc, csdraw->choose.rectangle, 3, HELPPOINTCOLOR);
 		break;
 	case CIRCLE:
+		DrawCircleHelp(hdc, csdraw->choose.circle, 3, HELPPOINTCOLOR);
 		break;
 	case MULTILINE:
-		break;
 	case FMULTILINE:
-		break;
 	case CURVE:
 		DrawMultiPointHelpNoL(hdc, &(csdraw->choose.multipoint));
 		break;
 	case BCURVE:
-
-		//DrawBCurveHelp(hdc, &(csdraw->choose.multipoint), BSPLINE, csdraw->choose.multipoint.numPoints);
+		POINT* pts = mapMyPoints(csdraw->choose.multipoint.points, csdraw->choose.multipoint.numPoints, csdraw->choose.multipoint.endNum);
+		DrawBCurveHelp(hdc, pts, BSPLINE, csdraw->choose.multipoint.numPoints);
+		delete[] pts;
 		break;
 	}
 }
@@ -639,6 +643,35 @@ void ShowAllCalPoint(HDC hdc, Coordinate coor) {
 	}
 	DeleteObject(hPen);
 	DeleteObject(hBlackBrush);
+}
+
+void UpdateStatusBarRadius(HWND hStatusBar, double r) {
+	wchar_t textR[100];
+
+	swprintf_s(textR, L"R: %f", r);
+	PostMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)textR);
+
+	return;
+}
+
+void UpdateStatusBarText(HWND hStatusBar, const wchar_t* text) {
+	PostMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)text);
+	return;
+}
+
+// 更新状态栏中的坐标
+void UpdateStatusBarCoordinates(HWND hStatusBar, double x, double y) {
+	wchar_t textX[100], textY[100];
+
+	// 更新 X 坐标文本
+	swprintf_s(textX, L"X: %.2f", x);
+	PostMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)textX);
+
+	// 更新 Y 坐标文本
+	swprintf_s(textY, L"Y: %.2f", y);
+	PostMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)textY);
+
+	return;
 }
 
 void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
@@ -905,17 +938,25 @@ double GetRadiusFromWParam(WPARAM wParam) {
 	return exp(scaleFactor * zDelta);
 }
 
-void RefreshRadius(WPARAM wParam) {
+double GetAngleFromWParam(WPARAM wParam) {
+	int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+
+	// 角度比例因子
+	double angle = zDelta * ANGLECHANGESPEED;
+	return angle;
+}
+
+void RefreshRadius(double radius) {
 	// 使用指数缩放，确保 radius 始终大于0
-	coordinate.radius *= 1.0 / GetRadiusFromWParam(wParam);
+	coordinate.radius /= radius;
 
 	// 防止缩放比例过小或过大
-	if (coordinate.radius < MINRADIUS) {
-		coordinate.radius = MINRADIUS; // 限制最小缩放比例
-	}
-	else if (coordinate.radius > MAXRADIUS) {
-		coordinate.radius = MAXRADIUS; // 限制最大缩放比例
-	}
+	//if (coordinate.radius < MINRADIUS) {
+	//	coordinate.radius = MINRADIUS; // 限制最小缩放比例
+	//}
+	//else if (coordinate.radius > MAXRADIUS) {
+	//	coordinate.radius = MAXRADIUS; // 限制最大缩放比例
+	//}
 	return;
 }
 
@@ -985,4 +1026,54 @@ void MoveCSDrawInPoint(int x, int y) {
 void ZoomCSDrawMyPoint(const MyPoint& center, double scale) {
 	ZoomDrawInfo(csdraw.choose, center, scale);
 	CalcCSDrawRect(csdraw, coordinate);
+}
+
+void RotateCSDraw(CSDrawInfo& csdraw, const MyPoint& mp, double angle) {
+	RotateDrawInfo(csdraw.choose, mp, angle);
+	CalcCSDrawRect(csdraw, coordinate);
+}
+
+void ZoomWindowCoordinate(const POINT& pt, double scale) {
+	ZoomCoordinate(coordinate, pt, scale);
+}
+
+void MouseWheel(HWND hCWnd, POINT point, WPARAM wParam) {
+	MyPoint mp;
+	PointToCoordinate(coordinate, point, mp.x, mp.y);
+
+	// 有被选中的图元
+	if (HasCSDraw(csdraw)) {
+		switch (csdraw.config.mode) {
+		case ZOOM:
+		{
+			double radius = GetRadiusFromWParam(wParam);
+			ZoomCSDrawMyPoint(mp, radius);
+			break;
+		}
+		case ROTATE:
+		{
+			double angle = GetAngleFromWParam(wParam);
+			// TODO: point
+			RotateCSDraw(csdraw, mp, angle);
+			break;
+		}
+		}
+	}
+	else {
+		// scale
+		double scale = GetRadiusFromWParam(wParam);
+
+		// 放大时,坐标系radius减小，缩小时，坐标系radius增大
+		RefreshRadius(scale);
+
+		// 更新 center
+		ZoomWindowCoordinate(point, scale);
+
+		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
+
+		// 触发鼠标移动事件
+		LPARAM l = MAKELPARAM(point.x, point.y);
+		WPARAM w = 0;
+		PostMessage(hCWnd, WM_MOUSEMOVE, w, l);
+	}
 }

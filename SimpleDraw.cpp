@@ -38,16 +38,6 @@ HWND Edit1, Edit2;
 HWND Button;
 HWND bgColorSlider, ColorSlider, WidthSlider, TypeCombo;			// 新增控件变量
 
-HDC hdcMemFixed;			// 固定图像内存DC
-HDC hdcMemPreview;			// 预览图像内存DC
-HDC hdcMemCoS;				// 计算或选中图像内存DC
-HBITMAP hbmMemFixed;		// 固定图像位图
-HBITMAP hbmMemPreview;		// 预览图像位图
-HBITMAP hbmOldFixed;		// 原固定位图
-HBITMAP hbmOldPreview;		// 原预览位图
-HBITMAP hbmmemCoS;			// 计算或选中图像位图
-HBITMAP hbmOldCoS;			// 原计算或选中位图
-
 // 全局变量用于保存光标的原始样式
 HCURSOR originalCursor;
 HCURSOR customCursor;		// 全局变量保存自定义光标句柄
@@ -78,7 +68,6 @@ void 				LoadMyCustomCuser();
 void				ClearCSState();
 void				Cleanup();
 
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR    lpCmdLine,
@@ -86,6 +75,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 {
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
+
+	// 设置 dll 导入位置
+	SetDllDirectory(DLLPATH);
 
 	// 初始化全局字符串
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -461,35 +453,6 @@ BOOL InitStatusInstance(HINSTANCE hInstance, int nCmdShow) {
 	return TRUE;
 }
 
-// 更新状态栏中的坐标
-void UpdateStatusBarCoordinates(double x, double y) {
-	wchar_t textX[100], textY[100];
-
-	// 更新 X 坐标文本
-	swprintf_s(textX, L"X: %.2f", x);
-	PostMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)textX);
-
-	// 更新 Y 坐标文本
-	swprintf_s(textY, L"Y: %.2f", y);
-	PostMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)textY);
-
-	return;
-}
-
-void UpdateStatusBarRadius(double r) {
-	wchar_t textR[100];
-
-	swprintf_s(textR, L"R: %f", r);
-	PostMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)textR);
-
-	return;
-}
-
-void UpdateStatusBarText(const wchar_t* text) {
-	PostMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)text);
-	return;
-}
-
 //  目标: 处理主窗口的消息。
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -529,7 +492,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case SAVEOK:
 				break;
 			default:
-				UpdateStatusBarText(L"文件保存失败");
+				UpdateStatusBarText(hStatusBar, L"文件保存失败");
 				break;
 			}
 			break;
@@ -575,16 +538,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				NeedRedraw();
 				break;
 			case DIALOGOPENFAILE:
-				UpdateStatusBarText(L"对话框打开失败");
+				UpdateStatusBarText(hStatusBar, L"对话框打开失败");
 				break;
 			case FILEHEADERINVALID:
-				UpdateStatusBarText(L"文件头部无效");
+				UpdateStatusBarText(hStatusBar, L"文件头部无效");
 				break;
 			case FILEVERSIONINVALID:
-				UpdateStatusBarText(L"文件版本无效");
+				UpdateStatusBarText(hStatusBar, L"文件版本无效");
 				break;
 			case FILEOPENFAILE:
-				UpdateStatusBarText(L"文件打开失败");
+				UpdateStatusBarText(hStatusBar, L"文件打开失败");
 				break;
 			case MEMORRYALLOCFAIL:
 				break;
@@ -593,8 +556,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		case CLEARIMG:
 		{
-			setType(mst, mst.type);
+			ClearType(mst);
 			ClearDrawing(&(drawing));		// 清空当前绘制的图形
+			ClearCSDrawInfo(csdraw);		// 清除选中信息
 			ClearStoreImg(&allImg);			// 清空图形
 			ClearContent(hdcMemPreview);	// 清空预览画布
 			ClearContent(hdcMemCoS);		// 清空计算或选中画布
@@ -603,55 +567,55 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case DRAW_LINE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWLINE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWLINE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_LINE);
 			setType(mst, DRAWLINE);
 			setDrawInfoType(&(drawing.info), LINE);
 
 			break;
 		case DRAW_CIRCLE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCIRCLE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCIRCLE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_CIRCLE);
 			setType(mst, DRAWCIRCLE);
 			setDrawInfoType(&(drawing.info), CIRCLE);
 
 			break;
 		case CHOOSE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, CHOOSEIMG, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, CHOOSEIMG, 0);
 			SetToolBarCheck(hToolBar, cs, CHOOSE);
 			setType(mst, CHOOSEIMG);
 
 			break;
 		case DRAW_RECT:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWRECTANGLE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWRECTANGLE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_RECT);
 			setType(mst, DRAWRECTANGLE);
 			setDrawInfoType(&(drawing.info), RECTANGLE);
 
 			break;
 		case DRAW_CURVE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWCURVE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_CURVE);
 			setType(mst, DRAWCURVE);
 			setDrawInfoType(&(drawing.info), CURVE);
 
 			break;
 		case DRAW_BCURVE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWBCURVE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_BCURVE);
 			setType(mst, DRAWBCURVE);
 			setDrawInfoType(&(drawing.info), BCURVE);
 
 			break;
 		case DRAW_MUTILINE:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWMULTILINE, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWMULTILINE, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_MUTILINE);
 			setType(mst, DRAWMULTILINE);
 			setDrawInfoType(&(drawing.info), MULTILINE);
 
 			break;
 		case DRAW_FMULTI:
-			PostMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWFMULTI, 0);
+			SendMessage(hSideWnd, CUSTOM_DRAWSTATE_CHANGE, DRAWFMULTI, 0);
 			SetToolBarCheck(hToolBar, cs, DRAW_FMULTI);
 			setType(mst, DRAWFMULTI);
 			setDrawInfoType(&(drawing.info), FMULTILINE);
@@ -742,7 +706,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// TODO: 工作区完成可以拖动多个文件
 		UINT maxCount = 1;
 		if (fileCount > maxCount) {
-			UpdateStatusBarText(L"只能处理一个文件");
+			UpdateStatusBarText(hStatusBar, L"只能处理一个文件");
 			DragFinish(hDrop); // 释放内存
 			break;
 		}
@@ -827,8 +791,8 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 	case WM_LBUTTONDOWN:
 	{
-		if (!InDraw(mst)) {
-			UpdateStatusBarText(L"请进入绘图模式再输入坐标!");
+		if (!InDrawState(mst)) {
+			UpdateStatusBarText(hStatusBar, L"请进入绘图模式再输入坐标!");
 		}
 		break;
 	}
@@ -916,7 +880,8 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	}
 	case CUSTOM_DRAWSTATE_CHANGE:
 	{
-		if (InDraw(mst)) {
+		DrawType type = GETDRAWTYPE(wParam);
+		if (InDrawDrawType(type)) {
 			EnableWindow(Edit1, TRUE);
 			EnableWindow(Edit2, TRUE);
 			EnableWindow(Button, TRUE);
@@ -926,6 +891,9 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			EnableWindow(Edit2, FALSE);
 			EnableWindow(Button, FALSE);
 		}
+
+		// 清空 CSDraw 的设置
+		ClearCSDrawConf(csdraw);
 
 		if (InDraw()) {
 			SendMessage(hCanvasWnd, WM_RBUTTONDOWN, NULL, (LPARAM)RBUTTOMDOWNCUSTOM);
@@ -943,7 +911,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	{
 		// 判断按钮是否被点击
 		if (LOWORD(wParam) == 1) {
-			if (!InDraw(mst)) break;
+			if (!InDrawState(mst)) break;
 			// 确定被点击
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
@@ -961,7 +929,7 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 			SetWindowText(Edit2, L"");
 		}
 		else if (HIWORD(wParam) == EN_CHANGE) {
-			if (!InDraw(mst)) break;
+			if (!InDrawState(mst)) break;
 			POINT pt = GetEditPoint(Edit1, Edit2); // 获取输入框的内容
 
 			PostMessage(hCanvasWnd, WM_MOUSEMOVE, 0, MAKELPARAM(pt.x, pt.y));
@@ -973,15 +941,6 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	}
 
 	return 0;
-}
-
-// 清空预览画布
-void ClearContent(HDC hdc) {
-	RECT rect;
-	GetClientRect(hCanvasWnd, &rect);
-	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
-	FillRect(hdc, &rect, hBrush);
-	DeleteObject(hBrush);
 }
 
 // 画布窗口，处理具体的画图逻辑，使用文件存储绘制的图像，方便重绘和对图像进行操作等
@@ -1039,7 +998,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		hNullBrush = CreateBrushIndirect(&lbb);
 		// 创建黑色画刷
 		hBlackBrush = CreateSolidBrush(RGB(0, 0, 0));
-		UpdateStatusBarRadius(coordinate.radius);
+		UpdateStatusBarRadius(hStatusBar, coordinate.radius);
 
 		break;
 	}
@@ -1086,6 +1045,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case HANDLER_HWND:
 			((MenuItemHandlerH)data.handler)(hCWnd);
 			break;
+		case HANDLER_CSDRAW:
+			((MenuItemHandlerC)data.handler)(&csdraw);
+			break;
 		}
 		
 		DWORD e = GetLastError();
@@ -1123,8 +1085,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	break;
 	case CUSTOM_REDRAW_DRAWING:
 	{
+		RefreshCSDrawPro(csdraw, customProperty);
 		ClearContent(hdcMemPreview);
 		drawDrawing(hdcMemPreview, &drawing, &customProperty);
+		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 		NeedRedraw();
 		break;
 	}
@@ -1148,6 +1112,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 				NeedRedraw();
 			}
+			StartChoose(mst);
 		}
 		break;
 		case CHOOSEN:
@@ -1334,7 +1299,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEIMG:
 		{
-			
+			// 方框选择
 			break;
 		}
 		case CHOOSEN:
@@ -1611,16 +1576,8 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 获得右上角坐标
 			MyPoint mp = GetRTMyPoint(csdraw);
 			POINT rtp = mapCoordinate(coordinate, mp.x, mp.y);
-			switch (choose.type) {
-			case LINE:
-			{
-				ShowMenu(rmenuManager, rtp, RigthMenuLine);
-				//setKZType(mst, DRAWCX);
-			}
-			break;
-			default:
-				break;
-			}
+
+			ShowMenuType(rmenuManager, rtp, choose.type);
 			break;
 		}
 		case KZDRAW:
@@ -1662,7 +1619,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		MyPoint mp;
 		PointToCoordinate(coordinate, point, mp.x, mp.y);
 		// 鼠标位置状态栏
-		UpdateStatusBarCoordinates(mp.x, mp.y);
+		UpdateStatusBarCoordinates(hStatusBar, mp.x, mp.y);
 
 		// 获得移动距离
 		int x = point.x - mst.lastMouseP.x;
@@ -1673,6 +1630,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case CHOOSEN:
 		{
 			if (IsChosen()) {
+				if (!HFPoint(MButtomMP(mst))) break;
 				ClearContent(hdcMemPreview);
 				// 更新图元位置
 				MoveCSDrawInPoint(x, y);
@@ -1687,22 +1645,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		{
 			if (!InMMove()) break;
 			ClearContent(hdcMemPreview);
-			//if (IsChosen()) {
-			//	// TODO: 是否需要滚轮操作方式?
-			//	// 更新图元位置
-			//	MoveCSDrawInPoint(x, y);
-			//	RedrawCoSContent(hCWnd, hdcMemCoS);
-			//	drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
-			//else {
-				// 更新坐标系中心
 			coordinate.center.x += x;
 			coordinate.center.y += y;
 			RedrawFixedContent(hCWnd, hdcMemFixed);
 			RedrawCoSContent(hCWnd, hdcMemCoS);
 			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			//}
-			
+
 			// 触发重绘
 			NeedRedraw();
 			break;
@@ -1821,7 +1769,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			if (count == drawing.info.multipoint.numPoints) {
 				ClearContent(hdcMemPreview);
-				gdiplusPoints[count] = Gdiplus::Point(point.x, point.y);
+				gdiplusPoints[drawing.info.multipoint.numPoints] = Gdiplus::Point(point.x, point.y);
 				// 画曲线
 				Graphics graphics(hdcMemPreview);
 				int color = customProperty.color;
@@ -1888,41 +1836,23 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 	}
 	case WM_MOUSEWHEEL:
 	{
-		// 获取鼠标点击的位置
 		POINT point = getClientPos(hCWnd);
 
 		MyPoint mp;
 		PointToCoordinate(coordinate, point, mp.x, mp.y);
+		
+		MouseWheel(hCWnd, point, wParam);
 
-		if (MyPointCSDraw(mp)) {
-			double radius = GetRadiusFromWParam(wParam);
-			ZoomCSDrawMyPoint(mp, radius);
-			RedrawCoSContent(hCWnd, hdcMemCoS);
-			ClearContent(hdcMemPreview);
-			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
-			NeedRedraw();
-			break;
-		}
-
-		// 鼠标位置状态栏
-		UpdateStatusBarCoordinates(mp.x, mp.y);
-
-		// 放大时,坐标系radius减小，缩小时，坐标系radius增大
-		RefreshRadius(wParam);
-
-		// 更新Radius
-		UpdateStatusBarRadius(coordinate.radius);
-
-		RedrawFixedContent(hCWnd, hdcMemFixed); // 重绘固定内容
 		RedrawCoSContent(hCWnd, hdcMemCoS);
 		ClearContent(hdcMemPreview);
 		drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 
-		// 触发鼠标移动事件
-		LPARAM l = MAKELPARAM(point.x, point.y);
-		WPARAM w = 0;
-		PostMessage(hCWnd, WM_MOUSEMOVE, w, l);
-		// 重新绘制窗口（触发 WM_PAINT）
+		// 鼠标位置状态栏
+		UpdateStatusBarCoordinates(hStatusBar, mp.x, mp.y);
+
+		// 更新Radius
+		UpdateStatusBarRadius(hStatusBar, coordinate.radius);
+
 		NeedRedraw();
 		break;
 	}
@@ -2025,7 +1955,17 @@ void LoadMyCustomCuser() {
 	return;
 }
 
+// 清空预览画布
+void ClearContent(HDC hdc) {
+	RECT rect;
+	GetClientRect(hCanvasWnd, &rect);
+	HBRUSH hBrush = CreateSolidBrush(CANVASCOLOR);
+	FillRect(hdc, &rect, hBrush);
+	DeleteObject(hBrush);
+}
+
 void ClearCSState() {
+	RefreshCSDrawPro(csdraw, customProperty);
 	RestoreCSDraw(allImg, csdraw);
 	ClearContent(hdcMemPreview);
 	ClearContent(hdcMemCoS);
