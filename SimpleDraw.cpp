@@ -1111,6 +1111,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 				NeedRedraw();
 			}
+			StartChoose(mst);
 		}
 		break;
 		case CHOOSEN:
@@ -1297,7 +1298,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEIMG:
 		{
-			
+			// 方框选择
 			break;
 		}
 		case CHOOSEN:

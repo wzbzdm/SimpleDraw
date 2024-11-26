@@ -89,6 +89,7 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
+	bool choose = false;			// 选择状态
 	bool draw = false;				// 绘图中
 	bool mmove = false;				// mmove
 	bool chosen = false;			// 选中状态还是非选中
@@ -106,6 +107,10 @@ struct MyDrawState {
 
 	MyDrawState() = default;
 };
+
+void StartChoose(MyDrawState& mst) {
+	mst.choose = true;
+}
 
 POINT LButtomDP(const MyDrawState& mst) {
 	return mst.lastLButtonDown;
