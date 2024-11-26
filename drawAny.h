@@ -97,7 +97,9 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 			BresenhamLine(hdc, start.x, start.y, end.x, end.y, pro->color);
 		}
 		else {
-			FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
+			MoveToEx(hdc, start.x, start.y, NULL);
+			LineTo(hdc, end.x, end.y);
+			//FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 		}
 	}
 	break;
@@ -107,7 +109,9 @@ int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 			MidpointLine(hdc, start.x, start.y, end.x, end.y, pro->color);
 		}
 		else {
-			FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
+			MoveToEx(hdc, start.x, start.y, NULL);
+			LineTo(hdc, end.x, end.y);
+			//FillLine(hdc, start.x, start.y, end.x, end.y, pro->color, pro->width);
 		}
 	}
 	break;
@@ -439,16 +443,15 @@ void MidpointLine(HDC hdc, int x0, int y0, int x1, int y1, int color) {
 	}
 }
 
+// TODO: 改正逻辑
 void FillLine(HDC hdc, int x0, int y0, int x1, int y1, int color, int width) {
 	int dx = x1 - x0;
 	int dy = y1 - y0;
 	int d = dy - (dx / 2);
 	int x = x0, y = y0;
 
-	// 计算线段的法向量
-	double length = sqrt(dx * dx + dy * dy);
-	double offsetX = -dy / length * (width / 2);
-	double offsetY = dx / length * (width / 2);
+	int offsetX = width / 2;
+	int offsetY = width / 2;
 
 	// 确定直线的四个边界点
 	POINT polygon[4] = {

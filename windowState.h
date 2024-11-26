@@ -78,6 +78,26 @@ typedef enum DrawType {
 	KZDRAW,				// 扩展功能
 } DrawType;
 
+#define GETDRAWTYPE(type)  ((DrawType)type)
+
+bool InDrawDrawType(const DrawType& type) {
+	switch (type) {
+	case CHOOSEIMG:
+	case CHOOSEN:
+	case MMOUSEMOVE:
+		return false;
+	case KZDRAW:
+	case DRAWLINE:
+	case DRAWCIRCLE:
+	case DRAWRECTANGLE:
+	case DRAWMULTILINE:
+	case DRAWFMULTI:
+	case DRAWBCURVE:
+	case DRAWCURVE:
+		return true;
+	}
+}
+
 typedef enum KZDrawType {
 	KZNONE,
 	DRAWCX,				// 画垂线
@@ -89,6 +109,7 @@ typedef void typeGo(MyDrawState& ms, DrawType type);
 typedef void typeBack(MyDrawState& ms);
 
 struct MyDrawState {
+	bool choose = false;			// 选择状态
 	bool draw = false;				// 绘图中
 	bool mmove = false;				// mmove
 	bool chosen = false;			// 选中状态还是非选中
@@ -106,6 +127,10 @@ struct MyDrawState {
 
 	MyDrawState() = default;
 };
+
+void StartChoose(MyDrawState& mst) {
+	mst.choose = true;
+}
 
 POINT LButtomDP(const MyDrawState& mst) {
 	return mst.lastLButtonDown;
@@ -153,7 +178,7 @@ bool TwoPointDraw(const POINT& p1, const POINT& p2) {
 }
 
 bool InDrawState(const MyDrawState& mst) {
-	return mst.type != CHOOSEIMG && mst.type != CHOOSEN && mst.type != MMOUSEMOVE;
+	return InDrawDrawType(mst.type);
 }
 
 bool InState(const MyDrawState& mst, DrawType type) {

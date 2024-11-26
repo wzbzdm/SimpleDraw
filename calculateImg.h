@@ -574,3 +574,112 @@ std::vector<POINT> CalcDeBoor(std::vector<POINT> points, int degree) {
 	// 默认计算 100 个点
 	return CalcDeBoor(points, degree, BCURVECALCPOINT);
 }
+
+// 判断点是否在矩形内
+bool IsInside(RECT rect, POINT pt) {
+    return pt.x >= rect.left && pt.x <= rect.right &&
+        pt.y >= rect.top && pt.y <= rect.bottom;
+}
+
+// 中点分割裁剪函数
+bool MidpointClipLine(RECT clipRect, POINT& p1, POINT& p2) {
+    if (IsInside(clipRect, p1) && IsInside(clipRect, p2)) {
+        return true; // 完全在内部，保留
+    }
+    if ((p1.x < clipRect.left && p2.x < clipRect.left) ||
+        (p1.x > clipRect.right && p2.x > clipRect.right) ||
+        (p1.y < clipRect.top && p2.y < clipRect.top) ||
+        (p1.y > clipRect.bottom && p2.y > clipRect.bottom)) {
+        return false; // 完全在外部，舍弃
+    }
+
+    // 递归裁剪中点
+    POINT mid = { (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 };
+    return MidpointClipLine(clipRect, p1, mid) && MidpointClipLine(clipRect, mid, p2);
+}
+
+// 判断点是否在某条裁剪边内
+bool Inside(POINT p, RECT clipRect, int edge) {
+    switch (edge) {
+    case 0: return p.y >= clipRect.top;    // 上边
+    case 1: return p.x <= clipRect.right; // 右边
+    case 2: return p.y <= clipRect.bottom;// 下边
+    case 3: return p.x >= clipRect.left;  // 左边
+    }
+    return false;
+}
+
+// 求交点
+POINT Intersect(POINT p1, POINT p2, RECT clipRect, int edge) {
+    POINT inter;
+    if (edge == 0) { // 上边
+        inter.x = p1.x + (p2.x - p1.x) * (clipRect.top - p1.y) / (p2.y - p1.y);
+        inter.y = clipRect.top;
+    }
+    else if (edge == 1) { // 右边
+        inter.y = p1.y + (p2.y - p1.y) * (clipRect.right - p1.x) / (p2.x - p1.x);
+        inter.x = clipRect.right;
+    }
+    else if (edge == 2) { // 下边
+        inter.x = p1.x + (p2.x - p1.x) * (clipRect.bottom - p1.y) / (p2.y - p1.y);
+        inter.y = clipRect.bottom;
+    }
+    else if (edge == 3) { // 左边
+        inter.y = p1.y + (p2.y - p1.y) * (clipRect.left - p1.x) / (p2.x - p1.x);
+        inter.x = clipRect.left;
+    }
+    return inter;
+}
+
+// Sutherland-Hodgman多边形裁剪
+std::vector<POINT> SutherlandHodgman(RECT clipRect, std::vector<POINT> polygon) {
+    for (int edge = 0; edge < 4; edge++) {
+        std::vector<POINT> newPolygon;
+        POINT prev = polygon.back();
+
+        for (const auto& cur : polygon) {
+            if (Inside(cur, clipRect, edge)) {
+                if (!Inside(prev, clipRect, edge)) {
+                    newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+                }
+                newPolygon.push_back(cur);
+            }
+            else if (Inside(prev, clipRect, edge)) {
+                newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+            }
+            prev = cur;
+        }
+        polygon = newPolygon;
+    }
+    return polygon;
+}
+
+std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon) {
+    std::vector<POINT> clippedPolygon;
+    std::vector<POINT> intersectionPoints;
+
+    for (int edge = 0; edge < 4; edge++) {
+        std::vector<POINT> newPolygon;
+        POINT prev = polygon.back();
+
+        for (const POINT& cur : polygon) {
+            if (Inside(cur, clipRect, edge)) {
+                if (!Inside(prev, clipRect, edge)) {
+                    // 添加入口点
+                    newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+                }
+                newPolygon.push_back(cur); // 添加内部点
+            }
+            else if (Inside(prev, clipRect, edge)) {
+                // 添加出口点
+                newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
+            }
+            prev = cur;
+        }
+        polygon = newPolygon;
+    }
+
+    // 对结果进行排序、去重，形成最终的裁剪多边形
+    clippedPolygon = polygon;
+    return clippedPolygon;
+}

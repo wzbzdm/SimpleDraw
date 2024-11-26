@@ -880,7 +880,8 @@ LRESULT CALLBACK SideWndProc(HWND hSWnd, UINT message, WPARAM wParam, LPARAM lPa
 	}
 	case CUSTOM_DRAWSTATE_CHANGE:
 	{
-		if (InDrawState(mst)) {
+		DrawType type = GETDRAWTYPE(wParam);
+		if (InDrawDrawType(type)) {
 			EnableWindow(Edit1, TRUE);
 			EnableWindow(Edit2, TRUE);
 			EnableWindow(Button, TRUE);
@@ -1111,6 +1112,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 				NeedRedraw();
 			}
+			StartChoose(mst);
 		}
 		break;
 		case CHOOSEN:
@@ -1297,7 +1299,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		switch (mst.type) {
 		case CHOOSEIMG:
 		{
-			
+			// 方框选择
 			break;
 		}
 		case CHOOSEN:
