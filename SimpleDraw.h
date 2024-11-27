@@ -494,6 +494,26 @@ void drawCSDraw(HDC hdc, CSDrawInfo* csdraw, const DrawUnitProperty* pro) {
 	drawDrawInfo(hdc, &choose);
 }
 
+void drawCSDrawInfoRectM(HDC hdc, POINT move) {
+	POINT start = mapCoordinate(coordinate, csdrect.start.x, csdrect.start.y);
+	drawCSDrawRectP(hdc, move, start);
+}
+
+void drawCSDrawInfoRect(HDC hdc, const CSDrawInfoRect& rect) {
+	if (rect.hasChoose) {
+		POINT start = mapCoordinate(coordinate, rect.start.x, rect.start.y);
+		POINT end = mapCoordinate(coordinate, rect.end.x, rect.end.y);
+		drawCSDrawRectP(hdc, start, end);
+	}
+}
+
+void MoveCSDrawRect(int x, int y) {
+	double dx, dy;
+	dx = coordinate.radius * x;
+	dy = - coordinate.radius * y;
+	MoveCSDrawInfoRect(csdrect, dx, dy);
+}
+
 // 图形计算或者辅助线显示
 void drawCoSDrawing(HDC hdc, DrawingInfo* drawing) {
 	switch (drawing->info.type) {
@@ -550,6 +570,7 @@ void RedrawCoSContent(HWND hCWnd, HDC hdc) {
 	drawCoSDrawing(hdc, &drawing);
 	drawCosCSDraw(hdc, &csdraw);
 	drawCosCalcPoint(hdc);
+	drawCSDrawInfoRect(hdc, csdrect);
 }
 
 void EnableMouseTracking(HWND hWnd) {
@@ -649,13 +670,13 @@ void UpdateStatusBarRadius(HWND hStatusBar, double r) {
 	wchar_t textR[100];
 
 	swprintf_s(textR, L"R: %f", r);
-	PostMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)textR);
+	SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)textR);
 
 	return;
 }
 
 void UpdateStatusBarText(HWND hStatusBar, const wchar_t* text) {
-	PostMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)text);
+	SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)text);
 	return;
 }
 
@@ -665,11 +686,11 @@ void UpdateStatusBarCoordinates(HWND hStatusBar, double x, double y) {
 
 	// 更新 X 坐标文本
 	swprintf_s(textX, L"X: %.2f", x);
-	PostMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)textX);
+	SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)textX);
 
 	// 更新 Y 坐标文本
 	swprintf_s(textY, L"Y: %.2f", y);
-	PostMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)textY);
+	SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)textY);
 
 	return;
 }

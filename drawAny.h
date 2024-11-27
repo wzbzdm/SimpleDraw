@@ -50,6 +50,28 @@ int DrawXLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	return 0;
 }
 
+int DrawXLineWithDash(HDC hdc, POINT start, POINT end, int color, int width, const DWORD dash[2]) {
+	LOGBRUSH lb;
+	lb.lbStyle = BS_SOLID;
+	lb.lbColor = color; // 线条颜色
+	HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, width, &lb, 2, dash);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+	MoveToEx(hdc, start.x, start.y, NULL);
+	LineTo(hdc, end.x, end.y);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+
+	return 0;
+}
+
 int DrawXLine(HDC hdc, POINT start, POINT end, int color, int width) {
 	LOGBRUSH lb;
 	lb.lbStyle = BS_SOLID;
@@ -770,4 +792,16 @@ void DrawBCurveDeBoor(HDC hdc, POINT* controlPoints, int degree, int n, const Dr
 	for (size_t i = 0; i < curvePoints.size() - 1; ++i) {
 		DrawLine(hdc, curvePoints[i], curvePoints[i + 1], pro);
 	}
+}
+
+#define CSDRAWRECTCOLOR		RGB(64, 64, 64)
+
+// 绘制选择矩形
+void drawCSDrawRectP(HDC hdc, POINT start, POINT end) {
+	DWORD dash[2] = { 10, 10 };
+	// 四边偏白色虚线
+	DrawXLineWithDash(hdc, start, { end.x, start.y }, CSDRAWRECTCOLOR, 2, dash);
+	DrawXLineWithDash(hdc, { end.x, start.y }, end, CSDRAWRECTCOLOR, 2, dash);
+	DrawXLineWithDash(hdc, end, { start.x, end.y }, CSDRAWRECTCOLOR, 2, dash);
+	DrawXLineWithDash(hdc, { start.x, end.y }, start, CSDRAWRECTCOLOR, 2, dash);
 }

@@ -132,6 +132,14 @@ void StartChoose(MyDrawState& mst) {
 	mst.choose = true;
 }
 
+bool InChoose(MyDrawState& mst) {
+	return mst.choose;
+}
+
+void EndChoose(MyDrawState& mst) {
+	mst.choose = false;
+}
+
 POINT LButtomDP(const MyDrawState& mst) {
 	return mst.lastLButtonDown;
 }
@@ -581,6 +589,77 @@ void RefreshCSDrawPro(CSDrawInfo& csdraw, const DrawUnitProperty& dup) {
 	csdraw.choose.proper = dup;
 }
 
+typedef struct CSDrawInfoRect {
+	MyPoint start;		// 选择矩形起点
+	MyPoint end;		// 选择矩形终点
+	bool hasChoose;		// 是否是被选择状态
+	bool inrect;		// 光标是否在区域内
+} CSDrawInfoRect;
+
+void MoveInRect(CSDrawInfoRect& csdrect) {
+	csdrect.inrect = true;
+}
+
+void MoveOutRect(CSDrawInfoRect& csdrect) {
+	csdrect.inrect = false;
+}
+
+bool InRect(CSDrawInfoRect& csdrect) {
+	return csdrect.inrect;
+}
+
+void StartCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.hasChoose = true;
+}
+
+void EndCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.hasChoose = false;
+}
+
+bool InCSDrawRect(const CSDrawInfoRect& csdrect) {
+	return csdrect.hasChoose;
+}
+
+void SetCSRectStart(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (InRect(csdrect)) return;
+	csdrect.start.x = point.x;
+	csdrect.start.y = point.y;
+}
+
+void SetCSRectEnd(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (InRect(csdrect)) return;
+	csdrect.end.x = point.x;
+	csdrect.end.y = point.y;
+}
+
+bool MyPointInCSDrawInfoRect(const CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (!csdrect.hasChoose) return false;
+
+	double minX, minY, maxX, maxY;
+	minX = min(csdrect.start.x, csdrect.end.x);
+	maxX = max(csdrect.start.x, csdrect.end.x);
+	minY = min(csdrect.start.y, csdrect.end.y);
+	maxY = max(csdrect.start.y, csdrect.end.y);
+
+	return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+}
+
+void SetInRect(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (MyPointInCSDrawInfoRect(csdrect, point)) {
+		MoveInRect(csdrect);
+	}
+	else {
+		MoveOutRect(csdrect);
+	}
+}
+
+void MoveCSDrawInfoRect(CSDrawInfoRect& csdrect, double x, double y) {
+	csdrect.start.x += x;
+	csdrect.start.y += y;
+	csdrect.end.x += x;
+	csdrect.end.y += y;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
@@ -593,6 +672,7 @@ DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 工具栏状态维护
 CSDrawInfo csdraw;								// 被选中的图元
+CSDrawInfoRect	csdrect;						// 被选中区域
 
 HDC hdcMemFixed;			// 固定图像内存DC
 HDC hdcMemPreview;			// 预览图像内存DC

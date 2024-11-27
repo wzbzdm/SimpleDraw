@@ -32,6 +32,7 @@ typedef struct MenuItemData {
 typedef enum RigthMenuType {
     RigthMenuInit,
     RightMenuNone,
+    RightMenuChoose,
     RigthMenuLine,
     RightMenuCircle,
 	RightMenuRectangle,
@@ -143,6 +144,16 @@ void InitRightMenuNone(RightMenuManager& manager) {
     AddMenuItem(manager, L"测试", data);
 }
 
+// 三种裁剪算法
+
+
+void InitRightMenuChoose(RightMenuManager& manager) {
+    InitMenuStyle(manager.style, 0);
+
+    MenuItemData data;
+
+}
+
 // 进入垂线的绘制
 void MenuLineCX(HWND hwnd) {
 
@@ -229,6 +240,11 @@ void InitRightMenu(RightMenuManager& manager, RigthMenuType type) {
     case RightMenuNone:
     {
         InitRightMenuNone(manager);
+        break;
+    }
+    case RightMenuChoose:
+    {
+        InitRightMenuChoose(manager);
         break;
     }
     case RigthMenuLine:
