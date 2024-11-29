@@ -3,6 +3,9 @@
 
 #include <Windows.h>
 #include <stack>
+#include <vector>
+
+using namespace std;
 
 #define HELPLINECORLOR	RGB(0, 0 , 255)
 #define HELPPOINTCOLOR	RGB(255, 0, 0)
@@ -65,6 +68,7 @@ typedef struct windowRect {
 } WindowRect;
 
 typedef enum DrawType {
+	CUTIMG,
 	CHOOSEIMG,
 	CHOOSEN,
 	DRAWLINE,
@@ -98,11 +102,6 @@ bool InDrawDrawType(const DrawType& type) {
 	}
 }
 
-typedef enum KZDrawType {
-	KZNONE,
-	DRAWCX,				// 画垂线
-} KZDrawType;
-
 typedef struct MyDrawState MyDrawState;
 
 typedef void typeGo(MyDrawState& ms, DrawType type);
@@ -118,18 +117,23 @@ struct MyDrawState {
 	std::stack<DrawType> preType;
 	typeGo* go = nullptr;
 	typeBack* back = nullptr;
-	KZDrawType kztype = KZDrawType::KZNONE;
 	POINT lastMouseP = INITPOINT;
 	POINT lastMMouseBDown = INITPOINT;
 	POINT lastMMouseBUp = INITPOINT;
 	POINT lastLButtonDown = INITPOINT;
 	POINT lastLButtonUp = INITPOINT;
-
-	MyDrawState() = default;
 };
 
 void StartChoose(MyDrawState& mst) {
 	mst.choose = true;
+}
+
+bool InChoose(MyDrawState& mst) {
+	return mst.choose;
+}
+
+void EndChoose(MyDrawState& mst) {
+	mst.choose = false;
 }
 
 POINT LButtomDP(const MyDrawState& mst) {
@@ -185,7 +189,20 @@ bool InState(const MyDrawState& mst, DrawType type) {
 	return mst.type == type;
 }
 
+void ClearStateP(MyDrawState& mst) {
+	mst.lastLButtonDown = INITPOINT;
+	mst.lastLButtonUp = INITPOINT;
+	mst.lastMMouseBDown = INITPOINT;
+	mst.lastMMouseBUp = INITPOINT;
+	mst.lastMouseP = INITPOINT;
+}
+
 void setTypeWithLastType(MyDrawState& mst, DrawType type) {
+	switch (type) {
+	case KZDRAW:
+		ClearStateP(mst);
+		break;
+	}
 	mst.lastType = mst.type;
 	mst.type = type;
 	mst.preType.push(type);
@@ -195,20 +212,14 @@ DrawType getType(MyDrawState& mst) {
 	return mst.type;
 }
 
-void ClearStateP(MyDrawState& mst) {
-	mst.lastLButtonDown = INITPOINT;
-	mst.lastLButtonUp = INITPOINT;
-	mst.lastMMouseBDown = INITPOINT;
-	mst.lastMMouseBUp = INITPOINT;
-	mst.lastMouseP = INITPOINT;
-}
+
 
 void RestoreFormLastType(MyDrawState& mst) {
 	if (mst.type == MMOUSEMOVE) {
 		ClearStateP(mst);
-		mst.type = mst.lastType;
-		mst.preType.pop();
 	}
+	mst.type = mst.lastType;
+	mst.preType.pop();
 }
 
 void InitMyDrawState(MyDrawState& mst) {
@@ -249,14 +260,8 @@ void ClearType(MyDrawState& mst) {
 	}
 }
 
-void setKZType(MyDrawState& mst, KZDrawType type) {
-	mst.type = KZDRAW;
-	mst.kztype = type;
-	ClearStateP(mst);
-}
-
 void EndKZType(MyDrawState& mst) {
-	mst.type = CHOOSEIMG;
+	RestoreFormLastType(mst);
 }
 
 void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrect, const int mode) {
@@ -373,6 +378,11 @@ typedef struct Coordinate {
 	double radius;
 } Coordinate;
 
+void MoveCoordinateCenter(Coordinate& coor, int x, int y) {
+	coor.center.x += x;
+	coor.center.y += y;
+}
+
 void SetCoordinate(Coordinate& coor, POINT center, const double radius) {
 	coor.center = center;
 	coor.radius = radius;
@@ -386,10 +396,94 @@ POINT mapCoordinate(const Coordinate& coor, double x, double y) {
 	return pt;
 }
 
+POINT mapCoordinate(const Coordinate& coor, MyPoint mp) {
+	POINT pt;
+	pt.x = (LONG)(coor.center.x + mp.x / coor.radius);
+	pt.y = (LONG)(coor.center.y - mp.y / coor.radius);
+	return pt;
+}
+
 // 将画布上的点映射到坐标系上
 void PointToCoordinate(const Coordinate& coor, const POINT& pt, double& x, double& y) {
 	x = (pt.x - coor.center.x) * coor.radius;
 	y = (coor.center.y - pt.y) * coor.radius;
+}
+
+POINT* mapMyPoints(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+vector<POINT> mapMyPointsV(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	vector<POINT> points(length);
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+POINT* mapLastMyPoints(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+POINT* mapPointsAddOne(MyPoint* mp, const Coordinate& coor, int length, int end, POINT add) {
+	POINT* points = new POINT[length + 1];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
+POINT* mapLastMyPointsAddOne(MyPoint* mp, const Coordinate coor, int length, int end, POINT add) {
+	POINT* points = new POINT[length + 1];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
+void InitMultipFromV(MultiPoint* mps, vector<POINT> points, const Coordinate& coor) {
+	if (mps) ClearMultipoint(mps);
+	for (POINT p : points) {
+		MyPoint mp;
+		PointToCoordinate(coor, p, mp.x, mp.y);
+		AddPointToMultipoint(mps, mp);
+	}
+	return;
 }
 
 typedef struct ChooseState {
@@ -490,9 +584,55 @@ typedef enum DrawConfigMode {
 	ROTATE			// 旋转
 } DrawConfigMode;
 
+#define CUTFUNC		0
+
+constexpr int AUTOCONFIGLEN = 4;
+
 typedef struct DrawConfig {
 	DrawConfigMode mode;
+	bool showFLine = true;
+	bool inCut = false;
+	char AutoConfig[AUTOCONFIGLEN];		// 四个字节
 } DrawConfig;
+
+void ClearDrawConfig(DrawConfig& drawconfig) {
+	drawconfig.mode = ZOOM;
+	drawconfig.showFLine = true;
+	drawconfig.inCut = false;
+	for (int i = 0; i < AUTOCONFIGLEN; i++) {
+		drawconfig.AutoConfig[i] = 0;
+	}
+}
+
+int ChangeShowLineState(DrawConfig& config, bool state) {
+	config.showFLine = state;
+	return 0;
+}
+
+int GetCutFunc(DrawConfig& drawconfig, int code) {
+	return drawconfig.AutoConfig[code];
+}
+
+void SetAutoConfig(DrawConfig& config, int code, char func) {
+	if (code >= sizeof(int)) return;
+	
+	config.AutoConfig[code] = func;
+}
+
+void ClearAutoConfig(DrawConfig& config, char code) {
+	if (code >= sizeof(int)) return;
+
+	config.AutoConfig[code] = 0;
+}
+
+void EnterCutMode(DrawConfig& config, int code, char func) {
+	SetAutoConfig(config, code, func);
+	config.showFLine = false;
+}
+
+void EndCutMode(DrawConfig& config) {
+	config.showFLine = true;
+}
 
 typedef struct CSDrawInfo {
 	int index;
@@ -501,6 +641,28 @@ typedef struct CSDrawInfo {
 	DrawInfoRect rect;
 	CSDrawInfo() : index(-1), choose(), rect(), config() {};
 } CSDrawInfo;
+
+RECT getCutRect(POINT start, POINT end) {
+	RECT rect;
+	rect.left = min(start.x, end.x);
+	rect.right = max(start.x, end.x);
+	rect.top = min(start.y, end.y);
+	rect.bottom = max(start.y, end.y);
+
+	return rect;
+}
+
+void StartCut(CSDrawInfo& csdraw) {
+	csdraw.config.inCut = true;
+}
+
+bool InCut(CSDrawInfo& csdraw) {
+	return csdraw.config.inCut;
+}
+
+void EndCut(CSDrawInfo& csdraw) {
+	csdraw.config.inCut = false;
+}
 
 void ClearCSDrawConf(CSDrawInfo& csdraw) {
 	csdraw.config.mode = DrawConfigMode::ZOOM;
@@ -516,11 +678,13 @@ void SetCSDrawMode(CSDrawInfo& csdraw, DrawConfigMode mode) {
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
 	csdraw.index = -1;
+	ClearDrawConfig(csdraw.config);
 }
 
 void ClearCSDrawInfo(CSDrawInfo& csdraw) {
 	if (csdraw.index != -1) {
 		ClearDrawInfo(&(csdraw.choose));
+		ClearDrawConfig(csdraw.config);
 		csdraw.index = -1;
 	}
 }
@@ -560,6 +724,7 @@ void FixMinWoH(CSDrawInfo& csdraw, const Coordinate &coor) {
 }
 
 void CalcCSDrawRect(CSDrawInfo& csdraw, const Coordinate& coor) {
+	if (csdraw.index == -1) return;
 	csdraw.rect = INITDRAWINFORECT;
 	GetDrawInfoRect(&(csdraw.choose), &(csdraw.rect));
 	FixMinWoH(csdraw, coor);
@@ -581,11 +746,139 @@ void RefreshCSDrawPro(CSDrawInfo& csdraw, const DrawUnitProperty& dup) {
 	csdraw.choose.proper = dup;
 }
 
+typedef struct CSDrawInfoRect {
+	MyPoint start;		// 选择矩形起点
+	MyPoint end;		// 选择矩形终点
+	bool hasChoose;		// 是否是被选择状态
+	bool inrect;		// 光标是否在区域内
+	int select;			// 选择的图元
+} CSDrawInfoRect;
+
+void MoveInRect(CSDrawInfoRect& csdrect) {
+	csdrect.inrect = true;
+}
+
+void MoveOutRect(CSDrawInfoRect& csdrect) {
+	csdrect.inrect = false;
+}
+
+bool InRect(CSDrawInfoRect& csdrect) {
+	return csdrect.inrect;
+}
+
+void StartCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.hasChoose = true;
+}
+
+void EndCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.hasChoose = false;
+	csdrect.inrect = false;
+}
+
+bool InCSDrawRect(const CSDrawInfoRect& csdrect) {
+	return csdrect.hasChoose;
+}
+
+void SetCSRectStart(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (InRect(csdrect)) return;
+	csdrect.start.x = point.x;
+	csdrect.start.y = point.y;
+}
+
+void SetCSRectEnd(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (InRect(csdrect)) return;
+	csdrect.end.x = point.x;
+	csdrect.end.y = point.y;
+}
+
+bool MyPointInCSDrawInfoRect(const CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (!csdrect.hasChoose) return false;
+
+	double minX, minY, maxX, maxY;
+	minX = min(csdrect.start.x, csdrect.end.x);
+	maxX = max(csdrect.start.x, csdrect.end.x);
+	minY = min(csdrect.start.y, csdrect.end.y);
+	maxY = max(csdrect.start.y, csdrect.end.y);
+
+	return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+}
+
+void SetInRect(CSDrawInfoRect& csdrect, const MyPoint& point) {
+	if (MyPointInCSDrawInfoRect(csdrect, point)) {
+		MoveInRect(csdrect);
+	}
+	else {
+		MoveOutRect(csdrect);
+	}
+}
+
+void MoveCSDrawInfoRect(CSDrawInfoRect& csdrect, double x, double y) {
+	csdrect.start.x += x;
+	csdrect.start.y += y;
+	csdrect.end.x += x;
+	csdrect.end.y += y;
+}
+
+void ClearCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.start = INITMYPOINT;
+	csdrect.end = INITMYPOINT;
+	csdrect.hasChoose = false;
+	csdrect.inrect = false;
+}
+
+typedef enum KZDrawType {
+	KZNONE,
+	DRAWCX,				// 画垂线
+} KZDrawType;
+
+typedef struct CuiXian {
+	bool first;
+} CuiXian;
+
+#define MYPI	3.141592653589793115997963468544185161590576171875
+
+MyPoint GetCXEnd(MyPoint start, MyPoint end, MyPoint p1, MyPoint p2) {
+	// 斜率为90度
+	if (abs(p1.y - p2.y) < 1e-6) {
+		return { start.x, end.y };
+	}
+
+	double k = -(p1.x - p2.x) / (p1.y - p2.y);
+	double x = (k * k * start.x - k * (start.y - end.y) + end.x) / (k * k + 1);;
+	double y = k * (x - start.x) + start.y;
+
+	return { x, y };
+}
+
+POINT GetCXEndP(POINT start, POINT end, POINT p1, POINT p2) {
+	// 斜率为90度
+	if (p1.x == p2.x) {
+		return { start.x, end.y };
+	}
+
+	double k = -1.0 * (p1.x - p2.x) / (p1.y - p2.y);
+	double x = (k * k * start.x - k * (start.y - end.y) + end.x) / (k * k + 1);
+	double y = k * (x - start.x) + start.y;
+
+	return { (int)x, (int)y };
+}
+
+typedef struct KZDrawInfo {
+	KZDrawType type;
+	union {
+		CuiXian cx;
+	};
+} KZDrawInfo;
+
+void setKZType(KZDrawInfo& kzdraw, KZDrawType type) {
+	kzdraw.type = type;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
 WindowState wstate = { 800, 650, 45 };
-MyDrawState mst;		// 默认状态
+MyDrawState mst;								// 默认状态
 Coordinate coordinate;							// 坐标系
 StoreImg allImg;								// 存储所有的图形
 DrawingInfo drawing;							// 当前正在绘制的图形
@@ -593,6 +886,8 @@ DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 工具栏状态维护
 CSDrawInfo csdraw;								// 被选中的图元
+CSDrawInfoRect csdrect;							// 被选中区域
+KZDrawInfo kzdraw;								// 扩展绘制方式
 
 HDC hdcMemFixed;			// 固定图像内存DC
 HDC hdcMemPreview;			// 预览图像内存DC

@@ -60,6 +60,9 @@
     <ClInclude Include="ywljDraw.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="DrawWorkSpace.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SimpleDraw.cpp">

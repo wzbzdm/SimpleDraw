@@ -50,6 +50,9 @@ void RectNextPoint(POINT point) {
 	MyPoint end;
 	PointToCoordinate(coordinate, point, end.x, end.y);
 	drawing.info.rectangle.end = end;
+	MyPoint start = drawing.info.rectangle.start;
+	drawing.info.rectangle.add1 = { start.x, end.y };
+	drawing.info.rectangle.add2 = { end.x, start.y };
 	drawing.info.proper = customProperty;
 
 	// 保存线
