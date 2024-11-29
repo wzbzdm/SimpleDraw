@@ -204,6 +204,14 @@ void DrawRectangleM(HDC hdc, const MyPoint& mstart, const MyPoint& mend, const D
 	DrawRectangle(hdc, start, end, pro);
 }
 
+void DrawRectangleI(HDC hdc, const MyRectangle& tangle, const DrawUnitProperty* pro) {
+	POINT start = mapCoordinate(coordinate, tangle.start.x, tangle.start.y);
+	POINT end = mapCoordinate(coordinate, tangle.end.x, tangle.end.y);
+	POINT add1 = mapCoordinate(coordinate, tangle.add1.x, tangle.add1.y);
+	POINT add2 = mapCoordinate(coordinate, tangle.add2.x, tangle.add2.y);
+	DrawRectangleF(hdc, start, end, add1, add2, pro);
+}
+
 void DrawMultiLineM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
 	POINT* points = mapMyPoints(mpoints, coordinate, numPoints, endNum);
 	DrawMultiLine(hdc, points, numPoints, pro);
@@ -263,7 +271,7 @@ void drawDrawInfo(HDC hdc, DrawInfo *item) {
 		case RECTANGLE:
 		{
 			// 画矩形
-			DrawRectangleM(hdc, item->rectangle.start, item->rectangle.end, &item->proper);
+			DrawRectangleI(hdc, item->rectangle, &item->proper);
 			break;
 		}
 		case MULTILINE:
@@ -1007,7 +1015,7 @@ bool MyPointCSDraw(const MyPoint& mp) {
 void MoveCSDrawInPoint(int x, int y) {
 	double dx = x * coordinate.radius;
 	double dy = - y * coordinate.radius;
-	MoveDrawInfo(csdraw.choose, dx, dy);
+	MoveInfoBy(&(csdraw.choose), dx, dy);
 	CalcCSDrawRect(csdraw, coordinate);
 }
 

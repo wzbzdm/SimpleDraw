@@ -485,13 +485,14 @@ POINT* mapLastMyPointsAddOne(MyPoint* mp, const Coordinate coor, int length, int
 	return points;
 }
 
-void InitMultipFromV(MultPoint* mps, vector<POINT> points, const Coordinate& coor) {
+void InitMultipFromV(MultiPoint* mps, vector<POINT> points, const Coordinate& coor) {
 	if (mps) ClearMultipoint(mps);
 	for (POINT p : points) {
 		MyPoint mp;
 		PointToCoordinate(coor, p, mp.x, mp.y);
 		AddPointToMultipoint(mps, mp);
 	}
+	return;
 }
 
 typedef struct ChooseState {

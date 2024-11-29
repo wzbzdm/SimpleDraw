@@ -28,8 +28,9 @@ extern "C" {
 #define FILEHEADERL 4
 #define FILEVERSIONL 8
 
-	constexpr char IMG_HEADER[FILEHEADERL] =	"GTX";
-	constexpr char FILE_VERSION[FILEVERSIONL] = "1.4";
+constexpr char IMG_HEADER[FILEHEADERL] =	"GTX";
+// 更改MyRectangle结构
+constexpr char FILE_VERSION[FILEVERSIONL] = "1.5";
 
 #define BSPLINE				3
 			
@@ -134,6 +135,11 @@ extern "C" {
 		double y;
 	} MyPoint;
 
+	void MoveMyPoint(MyPoint* p, double x, double y) {
+		p->x += x;
+		p->y += y;
+	}
+
 	bool HFMyPoint(const MyPoint* mp) {
 		return mp->x != ILLEGELMYPOINT && mp->y != ILLEGELMYPOINT;
 	}
@@ -146,6 +152,11 @@ extern "C" {
 		MyPoint start;
 		MyPoint end;
 	} MyLine;
+
+	void MoveLineBy(MyLine* line, double x, double y) {
+		MoveMyPoint(&(line->start), x, y);
+		MoveMyPoint(&(line->end), x, y);
+	}
 
 	double DistanceToLine(MyPoint p, MyLine line) {
 		double lineLength = Distance(line.start, line.end);
@@ -163,6 +174,10 @@ extern "C" {
 		double radius;
 	} MyCircle;
 
+	void MoveCircleBy(MyCircle* circle, double x, double y) {
+		MoveMyPoint(&(circle->center), x, y);
+	}
+
 	double GetDPointToCircle(MyPoint p, MyCircle circle) {
 		return fabs(Distance(p, circle.center) - circle.radius);
 	}
@@ -170,15 +185,27 @@ extern "C" {
 	typedef struct Rectangle {
 		MyPoint start;
 		MyPoint end;
+		MyPoint add1;
+		MyPoint add2;
 	} MyRectangle;
+
+	void MoveRectanglrBy(MyRectangle* tangle, double x, double y) {
+		MoveMyPoint(&(tangle->start), x, y);
+		MoveMyPoint(&(tangle->end), x, y);
+		MoveMyPoint(&(tangle->add1), x, y);
+		MoveMyPoint(&(tangle->add2), x, y);
+	}
 
 	double GetMinDPointToRectangle(MyPoint p, MyRectangle rect) {
 		double dis = ILLEGELMYPOINT;
-		double left = min(rect.start.x, rect.end.x);
-		double right = max(rect.start.x, rect.end.x);
-		double top = max(rect.start.y, rect.end.y);
-		double bottom = min(rect.start.y, rect.end.y);
 
+		// 找到矩形的边界
+		double left = min(min(rect.start.x, rect.end.x), min(rect.add1.x, rect.add2.x));
+		double right = max(max(rect.start.x, rect.end.x), max(rect.add1.x, rect.add2.x));
+		double top = max(max(rect.start.y, rect.end.y), max(rect.add1.y, rect.add2.y));
+		double bottom = min(min(rect.start.y, rect.end.y), min(rect.add1.y, rect.add2.y));
+
+		// 计算点到矩形的最短距离
 		if (p.x < left && p.y > top) {
 			dis = Distance(p, { left, top });
 		}
@@ -212,12 +239,19 @@ extern "C" {
 		return dis;
 	}
 
-	typedef struct MultPoint {
+	typedef struct MultiPoint {
 		MyPoint* points; // 多义线的顶点数组
 		int numPoints; // 顶点的数量
 		int endNum;    // 当前存储的最后一个数值在数组中的位置
 		int maxNum;			 // 当前数组的最大容量
 	} MyMultiPoint;
+
+	void MoveMultiPointBy(MultiPoint* pts, double x, double y) {
+		for (int i = 0; i < pts->endNum; i++) {
+			if (!HFMyPoint(&(pts->points[i]))) continue;
+			MoveMyPoint(&(pts->points[i]), x, y);
+		}
+	}
 
 	void ScanMultipoint(MyMultiPoint* multipoint) {
 		if (multipoint->endNum == multipoint->numPoints) return;
@@ -370,24 +404,17 @@ extern "C" {
 		switch (draw->type) {
 		case LINE:
 		{
-			draw->line.start.x += x;
-			draw->line.start.y += y;
-			draw->line.end.x += x;
-			draw->line.end.y += y;
+			MoveLineBy(&(draw->line), x, y);
 			break;
 		}
 		case CIRCLE:
 		{
-			draw->circle.center.x += x;
-			draw->circle.center.y += y;
+			MoveCircleBy(&(draw->circle), x, y);
 			break;
 		}
 		case RECTANGLE:
 		{
-			draw->rectangle.start.x += x;
-			draw->rectangle.start.y += y;
-			draw->rectangle.end.x += x;
-			draw->rectangle.end.y += y;
+			MoveRectanglrBy(&(draw->rectangle), x, y);
 			break;
 		}
 		case CURVE:
@@ -395,11 +422,7 @@ extern "C" {
 		case MULTILINE:
 		case FMULTILINE:
 		{
-			for (int i = 0; i < draw->multipoint.endNum; i++) {
-				if (!HFMyPoint(&(draw->multipoint.points[i]))) continue;
-				draw->multipoint.points[i].x += x;
-				draw->multipoint.points[i].y += y;
-			}
+			MoveMultiPointBy(&(draw->multipoint), x, y);
 			break;
 		}
 		default:
@@ -600,48 +623,11 @@ extern "C" {
 	}
 
 	void GetRectangleRect(const MyRectangle* rectangle, DrawInfoRect* rect) {
-		if (rectangle->start.x < rectangle->end.x) {
-			if (rectangle->start.x < rect->minX)
-			{
-				rect->minX = rectangle->start.x;
-			}
-			if (rectangle->end.x > rect->maxX)
-			{
-				rect->maxX = rectangle->end.x;
-			}
-			else {
-				int a = 1;
-			}
-		}
-		else {
-			if (rectangle->end.x < rect->minX)
-			{
-				rect->minX = rectangle->end.x;
-			}
-			if (rectangle->start.x > rect->maxX)
-			{
-				rect->maxX = rectangle->start.x;
-			}
-		}
-
-		if (rectangle->start.y < rectangle->end.y) {
-			if (rectangle->start.y < rect->minY)
-			{
-				rect->minY = rectangle->start.y;
-			}
-			if (rectangle->end.y > rect->maxY)
-			{
-				rect->maxY = rectangle->end.y;
-			}
-		}
-		else {
-			if (rectangle->end.y < rect->minY) {
-				rect->minY = rectangle->end.y;
-			}
-			if (rectangle->start.y > rect->maxY) {
-				rect->maxY = rectangle->start.y;
-			}
-		}
+		// 比较所有点的 x 和 y 坐标，更新 rect 的范围
+		rect->minX = min(rect->minX, min(min(rectangle->start.x, rectangle->end.x), min(rectangle->add1.x, rectangle->add2.x)));
+		rect->maxX = max(rect->maxX, max(max(rectangle->start.x, rectangle->end.x), max(rectangle->add1.x, rectangle->add2.x)));
+		rect->minY = min(rect->minY, min(min(rectangle->start.y, rectangle->end.y), min(rectangle->add1.y, rectangle->add2.y)));
+		rect->maxY = max(rect->maxY, max(max(rectangle->start.y, rectangle->end.y), max(rectangle->add1.y, rectangle->add2.y)));
 	}
 
 	void GetCircleRect(const MyCircle* circle, DrawInfoRect* rect) {
@@ -663,7 +649,6 @@ extern "C" {
 
 	void GetDrawInfoRect(const DrawInfo* info, DrawInfoRect *rect) {
 		switch (info->type) {
-			// MyLine和MyRectangle结构相同
 		case RECTANGLE:
 		{
 			GetRectangleRect(&(info->rectangle), rect);

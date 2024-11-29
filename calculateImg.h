@@ -252,47 +252,6 @@ bool ContinueChooseDrawInfo(DrawInfo& choose, Coordinate coor, POINT p) {
     return true;
 }
 
-void MoveMyPoint(MyPoint& p, double x, double y) {
-	p.x += x;
-	p.y += y;
-}
-
-// 图像平移
-void MoveDrawInfo(DrawInfo &info, double x, double y) {
-	if (x == 0 && y == 0) return;
-    switch (info.type) {
-    case LINE:
-    {
-        MoveMyPoint(info.line.start, x, y);
-        MoveMyPoint(info.line.end, x, y);
-    }
-    break;
-    case CIRCLE:
-    {
-		MoveMyPoint(info.circle.center, x, y);
-    }
-    break;
-    case RECTANGLE:
-    {
-		MoveMyPoint(info.rectangle.start, x, y);
-		MoveMyPoint(info.rectangle.end, x, y);
-    }
-    break;
-    case CURVE:
-    case BCURVE:
-    case MULTILINE:
-    case FMULTILINE:
-    {
-        for (int i = 0; i < info.multipoint.endNum; i++) {
-            if (HFMyPoint(&(info.multipoint.points[i]))) {
-                MoveMyPoint(info.multipoint.points[i], x, y);
-            }
-        }
-    }
-    break;
-    }
-}
-
 void ZoomMyPoint(MyPoint &p, const MyPoint &center, double scale) {
 	p.x = center.x + (p.x - center.x) * scale;
 	p.y = center.y + (p.y - center.y) * scale;
@@ -325,6 +284,8 @@ void ZoomDrawInfo(DrawInfo &info, const MyPoint &center, double scale) {
     {
 		ZoomMyPoint(info.rectangle.start, center, scale);
 		ZoomMyPoint(info.rectangle.end, center, scale);
+        ZoomMyPoint(info.rectangle.add1, center, scale);
+        ZoomMyPoint(info.rectangle.add2, center, scale);
     }
     break;
 	case CURVE:
@@ -375,6 +336,8 @@ void RotateDrawInfo(DrawInfo& info, const MyPoint& center, double angle) {
 	{
 		RotateMyPoint(info.rectangle.start, center, angle);
 		RotateMyPoint(info.rectangle.end, center, angle);
+        RotateMyPoint(info.rectangle.add1, center, angle);
+        RotateMyPoint(info.rectangle.add2, center, angle);
 	}
 	break;
 	case CURVE:

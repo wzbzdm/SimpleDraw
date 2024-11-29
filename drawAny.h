@@ -114,6 +114,25 @@ int DrawLine(HDC hdc, POINT start, POINT end, int width, int color) {
 	return 0;
 }
 
+int DrawLineS(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
+	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+
+	MoveToEx(hdc, start.x, start.y, NULL);
+	LineTo(hdc, end.x, end.y);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+	return 0;
+}
+
 int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);
@@ -293,6 +312,29 @@ int DrawRectangle(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) 
 	return 0;
 }
 
+// 四个点画矩形
+int DrawRectangleF(HDC hdc, POINT start, POINT end, POINT add1, POINT add2, const DrawUnitProperty* pro) {
+	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+
+	// 画四条线
+	DrawLineS(hdc, start, add1, pro);
+	DrawLineS(hdc, add1, end, pro);
+	DrawLineS(hdc, end, add2, pro);
+	DrawLineS(hdc, add2, start, pro);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+	return 0;
+}
+
 int StoreRectangleTo(StoreImg* sti, MyPoint start, MyPoint end, DrawUnitProperty pro) {
 	DrawInfo item;
 	item.type = RECTANGLE;
@@ -354,10 +396,9 @@ void DrawCircleHelp(HDC hdc, const MyCircle& circle, int size, COLORREF color) {
 void DrawRectangleHelp(HDC hdc, const MyRectangle& rectangle, int size, COLORREF color) {
 	DrawMyPoint(hdc, rectangle.start, size, color);
 	DrawMyPoint(hdc, rectangle.end, size, color);
-	MyPoint next1 = { rectangle.start.x, rectangle.end.y };
-	MyPoint next2 = { rectangle.end.x, rectangle.start.y };
-	DrawMyPoint(hdc, next1, size, color);
-	DrawMyPoint(hdc, next2, size, color);
+	DrawMyPoint(hdc, rectangle.add1, size, color);
+	DrawMyPoint(hdc, rectangle.add2, size, color);
+
 }
 
 // 没有虚线版本
