@@ -177,60 +177,6 @@ void drawCoordinate(HDC hdc, POINT center, int width, int height) {
 	DeleteObject(hPen);
 }
 
-POINT* mapMyPoints(MyPoint* mp, int length, int end) {
-	POINT* points = new POINT[length];
-	int count = 0;
-	for (int i = 0; i < end; i++) {
-		MyPoint pt = mp[i];
-		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
-			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-		}
-	}
-
-	return points;
-}
-
-POINT* mapLastMyPoints(MyPoint* mp, int length, int end) {
-	POINT* points = new POINT[length];
-	int count = 0;
-	for (int i = end - length; i < end; i++) {
-		MyPoint pt = mp[i];
-		if (count < length) {
-			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-		}
-	}
-
-	return points;
-}
-
-POINT* mapPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
-	POINT* points = new POINT[length+1];
-	int count = 0;
-	for (int i = 0; i < end; i++) {
-		MyPoint pt = mp[i];
-		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
-			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-		}
-	}
-	points[length] = add;
-
-	return points;
-}
-
-POINT* mapLastMyPointsAddOne(MyPoint* mp, int length, int end, POINT add) {
-	POINT* points = new POINT[length + 1];
-	int count = 0;
-	for (int i = end - length; i < end; i++) {
-		MyPoint pt = mp[i];
-		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
-			points[count++] = mapCoordinate(coordinate, pt.x, pt.y);
-		}
-	}
-	points[length] = add;
-
-	return points;
-}
-
 void DrawLineM(HDC hdc, const MyPoint& mstart, const MyPoint& mend, const DrawUnitProperty *pro) {
 	// 将坐标转换为屏幕坐标
 	POINT start = mapCoordinate(coordinate, mstart.x, mstart.y);
@@ -259,19 +205,19 @@ void DrawRectangleM(HDC hdc, const MyPoint& mstart, const MyPoint& mend, const D
 }
 
 void DrawMultiLineM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
-	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	POINT* points = mapMyPoints(mpoints, coordinate, numPoints, endNum);
 	DrawMultiLine(hdc, points, numPoints, pro);
 	delete[] points;
 }
 
 void DrawFMultiLineM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
-	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	POINT* points = mapMyPoints(mpoints, coordinate, numPoints, endNum);
 	DrawFMultiLine(hdc, points, numPoints, pro);
 	delete[] points;
 }
 
 void DrawBCurveM(HDC hdc, MyPoint* mpoints, int numPoints, int endNum, const DrawUnitProperty* pro) {
-	POINT* points = mapMyPoints(mpoints, numPoints, endNum);
+	POINT* points = mapMyPoints(mpoints, coordinate, numPoints, endNum);
 	DrawBSplineC(hdc, points, BSPLINE, numPoints, pro);
 	delete[] points;
 }
@@ -485,7 +431,7 @@ void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
 		DrawMultiPointHelpNoL(hdc, &(csdraw->choose.multipoint));
 		break;
 	case BCURVE:
-		POINT* pts = mapMyPoints(csdraw->choose.multipoint.points, csdraw->choose.multipoint.numPoints, csdraw->choose.multipoint.endNum);
+		POINT* pts = mapMyPoints(csdraw->choose.multipoint.points, coordinate, csdraw->choose.multipoint.numPoints, csdraw->choose.multipoint.endNum);
 		DrawBCurveHelp(hdc, pts, BSPLINE, csdraw->choose.multipoint.numPoints);
 		delete[] pts;
 		break;
@@ -525,7 +471,7 @@ void drawCoSDrawing(HDC hdc, DrawingInfo* drawing) {
 	case BCURVE:
 	{
 		if (drawing->info.multipoint.numPoints > 0) {
-			POINT* points = mapMyPoints(drawing->info.multipoint.points, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
+			POINT* points = mapMyPoints(drawing->info.multipoint.points, coordinate, drawing->info.multipoint.numPoints, drawing->info.multipoint.endNum);
 			DrawBCurveHelp(hdc, points, BSPLINE, drawing->info.multipoint.numPoints);
 			delete[] points;
 		}

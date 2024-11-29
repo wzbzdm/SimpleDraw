@@ -1286,12 +1286,12 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				ScanMultipoint(&(drawing.info.multipoint));
 				POINT* pts;
 				if (drawing.info.multipoint.numPoints < BSPLINE + 1) {
-					pts = mapMyPoints(drawing.info.multipoint.points, drawing.info.multipoint.numPoints, drawing.info.multipoint.numPoints);
+					pts = mapMyPoints(drawing.info.multipoint.points, coordinate, drawing.info.multipoint.numPoints, drawing.info.multipoint.numPoints);
 					DrawABCurveHelp(hdcMemCoS, pts[0], pts[1], pts[2], BSPLINE);
 					delete[] pts;
 					break;
 				}
-				pts = mapLastMyPoints(drawing.info.multipoint.points, BSPLINE + 1, drawing.info.multipoint.numPoints);
+				pts = mapLastMyPoints(drawing.info.multipoint.points, coordinate, BSPLINE + 1, drawing.info.multipoint.numPoints);
 				POINT* pts2 = new POINT[3];
 				for (int i = 0; i < 3; i++) {
 					pts2[i] = pts[i + BSPLINE - 2];
@@ -1587,7 +1587,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			p2 = mapCoordinate(coordinate, drawing.info.multipoint.points[last].x, drawing.info.multipoint.points[last].y);
 			DrawLine(hdcMemFixed, p1, p2, &customProperty);
 
-			POINT* pts = mapMyPoints(drawing.info.multipoint.points, drawing.info.multipoint.numPoints, drawing.info.multipoint.endNum);
+			POINT* pts = mapMyPoints(drawing.info.multipoint.points, coordinate, drawing.info.multipoint.numPoints, drawing.info.multipoint.endNum);
 			DrawFMultiLine(hdcMemFixed, pts, drawing.info.multipoint.numPoints, &customProperty);
 			delete[] pts;
 
@@ -1858,7 +1858,7 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 
 			// 填充
 			if (drawing.info.multipoint.numPoints >= 2) {
-				POINT* pts = mapPointsAddOne(drawing.info.multipoint.points, drawing.info.multipoint.numPoints, drawing.info.multipoint.endNum, point);
+				POINT* pts = mapPointsAddOne(drawing.info.multipoint.points, coordinate, drawing.info.multipoint.numPoints, drawing.info.multipoint.endNum, point);
 				PadColor(hdcMemPreview, pts, drawing.info.multipoint.numPoints + 1, customProperty.bgcolor, customProperty.type);
 				delete[]pts;
 			}
@@ -1887,13 +1887,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				ScanMultipoint(&(drawing.info.multipoint));
 				POINT* pts;
 				if (drawing.info.multipoint.numPoints < BSPLINE) {
-					pts = mapLastMyPointsAddOne(drawing.info.multipoint.points, 2, drawing.info.multipoint.numPoints, point);
+					pts = mapLastMyPointsAddOne(drawing.info.multipoint.points, coordinate, 2, drawing.info.multipoint.numPoints, point);
 					DrawABCurveHelp(hdcMemPreview, pts[0], pts[1], pts[2], BSPLINE);
 					NeedRedraw();
 					delete[] pts;
 					break;
 				}
-				pts = mapLastMyPointsAddOne(drawing.info.multipoint.points, BSPLINE, drawing.info.multipoint.endNum, point);
+				pts = mapLastMyPointsAddOne(drawing.info.multipoint.points, coordinate, BSPLINE, drawing.info.multipoint.endNum, point);
 				POINT* pts2 = new POINT[3];
 				for (int i = 0; i < 3; i++) {
 					pts2[i] = pts[i + BSPLINE - 2];

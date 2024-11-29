@@ -331,7 +331,7 @@ extern "C" {
 		multipoint->points = NULL;
 		multipoint->numPoints = 0;
 		multipoint->endNum = 0;
-		multipoint->maxNum = MAX_POINT;
+		multipoint->maxNum = 0;
 	}
 
 	typedef struct DrawInfo {

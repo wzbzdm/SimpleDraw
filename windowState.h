@@ -3,6 +3,9 @@
 
 #include <Windows.h>
 #include <stack>
+#include <vector>
+
+using namespace std;
 
 #define HELPLINECORLOR	RGB(0, 0 , 255)
 #define HELPPOINTCOLOR	RGB(255, 0, 0)
@@ -413,6 +416,82 @@ POINT mapCoordinate(const Coordinate& coor, MyPoint mp) {
 void PointToCoordinate(const Coordinate& coor, const POINT& pt, double& x, double& y) {
 	x = (pt.x - coor.center.x) * coor.radius;
 	y = (coor.center.y - pt.y) * coor.radius;
+}
+
+POINT* mapMyPoints(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+vector<POINT> mapMyPointsV(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	vector<POINT> points(length);
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+POINT* mapLastMyPoints(MyPoint* mp, const Coordinate& coor, int length, int end) {
+	POINT* points = new POINT[length];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+
+	return points;
+}
+
+POINT* mapPointsAddOne(MyPoint* mp, const Coordinate& coor, int length, int end, POINT add) {
+	POINT* points = new POINT[length + 1];
+	int count = 0;
+	for (int i = 0; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
+POINT* mapLastMyPointsAddOne(MyPoint* mp, const Coordinate coor, int length, int end, POINT add) {
+	POINT* points = new POINT[length + 1];
+	int count = 0;
+	for (int i = end - length; i < end; i++) {
+		MyPoint pt = mp[i];
+		if (pt.x != ILLEGELMYPOINT && pt.y != ILLEGELMYPOINT && count < length) {
+			points[count++] = mapCoordinate(coor, pt.x, pt.y);
+		}
+	}
+	points[length] = add;
+
+	return points;
+}
+
+void InitMultipFromV(MultPoint* mps, vector<POINT> points, const Coordinate& coor) {
+	if (mps) ClearMultipoint(mps);
+	for (POINT p : points) {
+		MyPoint mp;
+		PointToCoordinate(coor, p, mp.x, mp.y);
+		AddPointToMultipoint(mps, mp);
+	}
 }
 
 typedef struct ChooseState {

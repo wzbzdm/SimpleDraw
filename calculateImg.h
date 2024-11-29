@@ -701,6 +701,7 @@ POINT Intersect(POINT p1, POINT p2, RECT clipRect, int edge) {
 std::vector<POINT> SutherlandHodgman(RECT clipRect, std::vector<POINT> polygon) {
     for (int edge = 0; edge < 4; edge++) {
         std::vector<POINT> newPolygon;
+        if (polygon.size() == 0) return polygon;
         POINT prev = polygon.back();
 
         for (const auto& cur : polygon) {
@@ -726,6 +727,7 @@ std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon)
 
     for (int edge = 0; edge < 4; edge++) {
         std::vector<POINT> newPolygon;
+        if (polygon.size() == 0) return polygon;
         POINT prev = polygon.back();
 
         for (const POINT& cur : polygon) {
@@ -752,7 +754,7 @@ std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon)
 
 bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
     DrawInfo* choose = &(csdraw.choose);
-    bool drawstate;
+    bool drawstate = true;
     switch (choose->type) {
     case LINE:
     {
@@ -778,13 +780,26 @@ bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
     break;
     case FMULTILINE:
     {
+        vector<POINT> points = mapMyPointsV(choose->multipoint.points, coordinate, choose->multipoint.numPoints, choose->multipoint.endNum);
+        vector<POINT> npoints;
         switch (GetCutFunc(csdraw.config, CUTFUNC)) {
         case 1:
-
+            // 裁剪
+            npoints = SutherlandHodgman(cutrect, points);
             break;
         case 2:
-
+            npoints = WeilerAthertonClip(cutrect, points);
             break;
+        }
+
+        if (npoints.size() == 0) {
+            ClearMultipoint(&(choose->multipoint));
+            csdraw.index = -1;
+            drawstate = false;
+        }
+        else {
+            InitMultipFromV(&(choose->multipoint), npoints, coordinate);
+            drawstate = true;
         }
     }
     break;
