@@ -2,6 +2,7 @@
 
 #include "drawinfo.h"
 #include "windowState.h"
+#include <math.h>
 #include <vector>
 
 #define POPMENUINTERVAL     5
@@ -19,17 +20,25 @@ typedef void (*MenuItemHandlerC)(CSDrawInfo* csdraw);
 #define ARGS_CUT            3
 typedef void (*MenuItemHandlerCut)(MyDrawState& mst, CSDrawInfo& csdraw);
 
+#define ARGS_MST            4
+typedef void (*MenuItemHandlerMST)(MyDrawState& mst);
+
+#define ARGS_KZDRAW         5
+typedef void (*MenuItemHandlerKZD)(MyDrawState& mst, CSDrawInfo& csdraw, KZDrawInfo& kzdraw);
+
 #define ARGS_CJSF           10
 typedef void (*MenuItemHandlerCJSF)(StoreImg& imgs, const CSDrawInfoRect& rect, Coordinate& coor);
 
 typedef void* MenuItemHandler;
 
 typedef enum HandlerType {
-	HANDLER_NONE = ARGS_NONE,
-    HANDLER_HWND = ARGS_HWND,
-	HANDLER_CSDRAW = ARGS_CSDRAW,
-	HANDLER_CJSF = ARGS_CJSF,
-    HANDLER_CUT = ARGS_CUT,
+	HANDLER_NONE    =   ARGS_NONE,
+    HANDLER_HWND    =   ARGS_HWND,
+	HANDLER_CSDRAW  =   ARGS_CSDRAW,
+	HANDLER_CJSF    =   ARGS_CJSF,
+    HANDLER_CUT     =   ARGS_CUT,
+    HANDLER_MST     =   ARGS_MST,
+    HANDLER_KZD     =   ARGS_KZDRAW,
 } HandlerType;
 
 typedef struct MenuItemData {
@@ -156,12 +165,19 @@ void InitRightMenuChoose(RightMenuManager& manager) {
     InitMenuStyle(manager.style, 0);
 
     MenuItemData data;
-
 }
 
 // 进入垂线的绘制
-void MenuLineCX(HWND hwnd) {
-
+void MenuLineCX(MyDrawState& mst, CSDrawInfo& csdraw, KZDrawInfo &kzdraw) {
+    if (csdraw.choose.type != LINE) return;
+    setTypeWithLastType(mst, KZDRAW);
+    setKZType(kzdraw, DRAWCX);
+    MyPoint start = csdraw.choose.line.start;
+    MyPoint end = csdraw.choose.line.end;
+    // 求角度
+    kzdraw.cx.first = true;
+    // 不显示辅助线
+    ChangeShowLineState(csdraw.config, false);
 }
 
 // 线的裁减算法
@@ -179,7 +195,7 @@ void InitRightMenuLine(RightMenuManager& manager) {
 
     MenuItemData data;
 	data.handler = (MenuItemHandler)&MenuLineCX;
-	data.type = HANDLER_HWND;
+	data.type = HANDLER_KZD;
     AddMenuItem(manager, L"作垂线", data);
 
     data.handler = (MenuItemHandler)&MenuLineCut;

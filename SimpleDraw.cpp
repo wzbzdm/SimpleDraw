@@ -1075,6 +1075,9 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case HANDLER_CSDRAW:
 			((MenuItemHandlerC)data.handler)(&csdraw);
 			break;
+		case HANDLER_MST:
+			((MenuItemHandlerMST)data.handler)(mst);
+			break;
 		case HANDLER_CJSF:
 			((MenuItemHandlerCJSF)data.handler)(allImg, csdrect, coordinate);
 			break;
@@ -1082,6 +1085,15 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 取消工具栏选中
 			SetToolBarCheck(hToolBar, cs, -1);
 			((MenuItemHandlerCut)data.handler)(mst, csdraw);
+			// 重绘 Cos
+			RedrawCoSContent(hCWnd, hdcMemCoS);
+			ClearContent(hdcMemPreview);
+			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+			NeedRedraw();
+			break;
+		case HANDLER_KZD:
+			((MenuItemHandlerKZD)data.handler)(mst, csdraw, kzdraw);
+			// 重绘 Cos
 			RedrawCoSContent(hCWnd, hdcMemCoS);
 			ClearContent(hdcMemPreview);
 			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
@@ -1154,12 +1166,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				ClearContent(hdcMemPreview);
 				// 调用裁减函数，重绘 csdraw
 				RECT cutrect = getCutRect(mst.lastLButtonDown, point);
-				if (CutCSDraw(csdraw, cutrect, coordinate)) {
+				pair<bool, bool> state = CutCSDraw(allImg, csdraw, cutrect, coordinate);
+				if (state.first) {
 					// 返回上一个状态
 					RestoreFormLastType(mst);
 				}
 				else {
-					setType(mst, CHOOSEIMG);
+					SendMessage(hWnd, WM_COMMAND, CHOOSE, NULL);
 				}
 
 				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
@@ -1168,6 +1181,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 				EndCutMode(csdraw.config);
 				
 				EndCut(csdraw);
+
+				if (state.second) {
+					RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+				}
 
 				RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 				NeedRedraw();
@@ -1318,28 +1335,29 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		case KZDRAW:
 		{
 			// 扩展功能
-			switch (mst.kztype) {
+			switch (kzdraw.type) {
 			case DRAWCX:
 			{
-				// 保存线段
-				ClearContent(hdcMemPreview);
 				if (csdraw.index == -1) break;
-				DrawInfo choose = csdraw.choose;
-				if (choose.type != LINE) break;
-				MyPoint start = choose.line.start;
-				MyPoint end = choose.line.end;
-				MyPoint mp;
-				PointToCoordinate(coordinate, point, mp.x, mp.y);
-				// 计算垂线
-				MyPoint p = CalPerpendicular(start, end, mp);
+				if (kzdraw.cx.first) {
+					kzdraw.cx.first = false;
+				}
+				else {
+					DrawInfo choose = csdraw.choose;
+					if (choose.type != LINE) break;
 
-				// 保存线段
-				StoreLineTo(&allImg, mp, p, customProperty);
+					MyPoint start;
+					PointToCoordinate(coordinate, mst.lastLButtonDown, start.x, start.y);
+					MyPoint end = GetCXEnd(start, mp, csdraw.choose.line.start, csdraw.choose.line.end);
+					// 保存线段
+					StoreLineTo(&allImg, start, end, customProperty);
 
-				// 画线
-				POINT pt = mapCoordinate(coordinate, p.x, p.y);
-				DrawLine(hdcMemFixed, point, pt, &customProperty);
-				break;
+					POINT p1 = mapCoordinate(coordinate, start);
+					POINT p2 = mapCoordinate(coordinate, end);
+					DrawLine(hdcMemFixed, p1, p2, &customProperty);
+					kzdraw.cx.first = true;
+					break;
+				}
 			}
 			}
 		}
@@ -1409,12 +1427,13 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 调用裁减函数，重绘 csdraw
 			RECT cutrect = getCutRect(mst.lastLButtonDown, point);
 
-			if (CutCSDraw(csdraw, cutrect, coordinate)) {
+			pair<bool, bool> state = CutCSDraw(allImg, csdraw, cutrect, coordinate);
+			if (state.first) {
 				// 返回上一个状态
 				RestoreFormLastType(mst);
 			}
 			else {
-				setType(mst, CHOOSEIMG);
+				SendMessage(hWnd, WM_COMMAND, CHOOSE, NULL);
 			}
 
 			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
@@ -1422,6 +1441,10 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 			// 退出裁减状态
 			EndCutMode(csdraw.config);
 			EndCut(csdraw);
+
+			if (state.second) {
+				RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+			}
 
 			RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 			NeedRedraw();
@@ -1698,11 +1721,15 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		}
 		case KZDRAW:
 		{
-			switch (mst.kztype) {
+			ClearContent(hdcMemPreview);
+			switch (kzdraw.type) {
 			case DRAWCX:
 			{
+				kzdraw.cx.first = true;
 				EndKZType(mst);
-				ClearContent(hdcMemPreview);
+				ChangeShowLineState(csdraw.config, true);
+				drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
+				RedrawCoSContent(hCanvasWnd, hdcMemCoS);
 				NeedRedraw();
 				break;
 			}
@@ -1936,27 +1963,28 @@ LRESULT CALLBACK CanvasWndProc(HWND hCWnd, UINT message, WPARAM wParam, LPARAM l
 		}
 		case KZDRAW:
 		{
+			ClearContent(hdcMemPreview);
+			drawCSDraw(hdcMemPreview, &csdraw, &customProperty);
 			// 扩展功能
-			switch (mst.kztype) {
+			switch (kzdraw.type) {
 			case DRAWCX:
 			{
-				ClearContent(hdcMemPreview);
 				// 预览垂线,为选中的线段的垂线
 				if (csdraw.index == -1) break;
 				DrawInfo choose = csdraw.choose;
 				if (choose.type != LINE) break;
-				MyPoint start = choose.line.start;
-				MyPoint end = choose.line.end;
-				// 计算垂线
-				MyPoint p = CalPerpendicular(start, end, mp);
-				POINT pt = mapCoordinate(coordinate, p.x, p.y);
-				// 画线
-				DrawLine(hdcMemPreview, point, pt, &customProperty);
-				// 触发重绘
-				NeedRedraw();
-				break;
+
+				if (!kzdraw.cx.first) {
+					POINT p1 = mapCoordinate(coordinate, csdraw.choose.line.start);
+					POINT p2 = mapCoordinate(coordinate, csdraw.choose.line.end);
+					POINT end = GetCXEndP(mst.lastLButtonDown, point, p1, p2);
+					DrawLine(hdcMemPreview, mst.lastLButtonDown, end, &customProperty);
+					break;
+				}
 			}
 			}
+
+			NeedRedraw();
 		}
 		default:
 			break;

@@ -684,40 +684,259 @@ std::vector<POINT> SutherlandHodgman(RECT clipRect, std::vector<POINT> polygon) 
     return polygon;
 }
 
-std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon) {
-    std::vector<POINT> clippedPolygon;
-    std::vector<POINT> intersectionPoints;
+typedef struct Node {
+    POINT point;
+    Node* next;
+    Node* rect;
 
-    for (int edge = 0; edge < 4; edge++) {
-        std::vector<POINT> newPolygon;
-        if (polygon.size() == 0) return polygon;
-        POINT prev = polygon.back();
+    bool isrect;                    // 是否为裁剪矩形的点
+    bool isIntersection = false;    // 是否为交点
+    bool isEntry = false;           // 是否为进入点
+    bool visited = false;           // 是否已访问
+} Node;
 
-        for (const POINT& cur : polygon) {
-            if (Inside(cur, clipRect, edge)) {
-                if (!Inside(prev, clipRect, edge)) {
-                    // 添加入口点
-                    newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
-                }
-                newPolygon.push_back(cur); // 添加内部点
-            }
-            else if (Inside(prev, clipRect, edge)) {
-                // 添加出口点
-                newPolygon.push_back(Intersect(prev, cur, clipRect, edge));
-            }
-            prev = cur;
-        }
-        polygon = newPolygon;
+// 判断是否有交点
+pair<POINT, bool> GetIntersection(const POINT& p1, const POINT& p2, const POINT& c1, const POINT& c2) {
+    POINT inter;
+    float a1 = p2.y - p1.y;
+    float b1 = p1.x - p2.x;
+    float c1_eq = a1 * p1.x + b1 * p1.y;
+
+    float a2 = c2.y - c1.y;
+    float b2 = c1.x - c2.x;
+    float c2_eq = a2 * c1.x + b2 * c1.y;
+
+    float det = a1 * b2 - a2 * b1;
+    if (std::abs(det) < 1e-5) return { inter, false };
+
+    inter.x = static_cast<LONG>((b2 * c1_eq - b1 * c2_eq) / det);
+    inter.y = static_cast<LONG>((a1 * c2_eq - a2 * c1_eq) / det);
+
+    // 检查交点是否在两线段上, 不包含端点
+    auto isBetween = [](LONG val, LONG minVal, LONG maxVal) {
+        return val >= min(minVal, maxVal) && val <= max(minVal, maxVal);
+        };
+
+    if (isBetween(inter.x, p1.x, p2.x) &&
+        isBetween(inter.y, p1.y, p2.y) &&
+        isBetween(inter.x, c1.x, c2.x) &&
+        isBetween(inter.y, c1.y, c2.y)) {
+        return { inter, true };
     }
 
-    // 对结果进行排序、去重，形成最终的裁剪多边形
-    clippedPolygon = polygon;
-    return clippedPolygon;
+    return { inter, false };
 }
 
-bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
+bool IsEntryPoint(const POINT& polyPoint, const POINT& clipStart, const POINT& clipEnd) {
+    LONG crossProduct = (polyPoint.x - clipStart.x) * (clipEnd.y - clipStart.y) -
+        (polyPoint.y - clipStart.y) * (clipEnd.x - clipStart.x);
+    return crossProduct > 0; // >0 表示进入，<0 表示离开
+}
+
+Node* InsertNode(Node*& head, Node* position, const POINT& intersection, bool isEntry, bool isIntersection, bool isrect) {
+    Node* newNode = new Node{ intersection };
+    newNode->isIntersection = isIntersection;
+    newNode->isEntry = isEntry;
+    newNode->isrect = isrect;
+
+    if (!head) {
+        head = newNode;
+        head->next = head; // 自环
+        if (isrect) {
+            head->rect = head;
+        }
+        return head;
+    }
+
+    if (isrect) {
+        newNode->rect = position->rect;
+        position->rect = newNode;
+    }
+    newNode->next = position->next;
+    position->next = newNode;
+
+    return newNode;
+}
+
+// 辅助函数：在裁剪多边形中找到对应的交点
+Node* FindNodeInCP(Node* CP, Node* intersection) {
+    Node* temp = CP;
+    do {
+        if (temp->point.x == intersection->point.x &&
+            temp->point.y == intersection->point.y &&
+            temp->isIntersection) {
+            return temp;
+        }
+        temp = temp->next;
+    } while (temp != CP);
+    return nullptr;
+}
+
+// 辅助函数：在输入多边形中找到对应的交点
+Node* FindNodeInSP(Node* SP, Node* intersection) {
+    Node* temp = SP;
+    do {
+        if (temp->point.x == intersection->point.x &&
+            temp->point.y == intersection->point.y &&
+            temp->isIntersection) {
+            return temp;
+        }
+        temp = temp->next;
+    } while (temp != SP);
+    return nullptr;
+}
+
+bool InRECT(POINT p, RECT rect) {
+    return (p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom);
+}
+
+bool IsInFMulti(RECT clipRect, std::vector<POINT> polygon) {
+    for (POINT p : polygon) {
+        if (InRECT(p, clipRect)) return false;
+    }
+
+    return true;
+}
+
+// Weiler-Atherton多边形裁剪
+std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon) {
+    // 存储结果的容器
+    std::vector<std::vector<POINT>> result;
+    // 全在多边形区域内
+    if (IsInFMulti(clipRect, polygon)) {
+        std::vector<POINT> rect;
+        rect.push_back({ clipRect.left, clipRect.top });
+        rect.push_back({ clipRect.left, clipRect.bottom });
+        rect.push_back({ clipRect.right, clipRect.bottom });
+        rect.push_back({ clipRect.right, clipRect.top });
+        result.push_back(rect);
+        return result;
+    }
+    // 初始化输入多边形（SP）和裁剪多边形（CP）的环形链表
+    Node* SP = nullptr;
+    Node* CP = nullptr;
+
+    // 初始化裁剪多边形（矩形顶点）
+    POINT topLeft = { clipRect.left, clipRect.top };
+    POINT topRight = { clipRect.right, clipRect.top };
+    POINT bottomRight = { clipRect.right, clipRect.bottom };
+    POINT bottomLeft = { clipRect.left, clipRect.bottom };
+
+    std::vector<POINT> clipPolygon = { topLeft, topRight, bottomRight, bottomLeft, topLeft};
+    Node* CPi = CP;
+    for (size_t i = 0; i < clipPolygon.size(); ++i) {
+        CPi = InsertNode(CPi, CPi, clipPolygon[i], false, false, true);
+    }
+    CP = CPi->next;
+
+    // 初始化输入多边形
+    Node* SPi = SP;
+    for (const auto& p : polygon) {
+        SPi = InsertNode(SPi, SPi, p, false, false, false);
+    }
+    SPi = InsertNode(SPi, SPi, polygon[0], false, false, false);
+    SP = SPi->next;
+
+    // 计算交点并插入
+    Node* spCurrent = SP;
+    do {
+        Node* cpCurrent = CP;
+        // 当前SP边与所有rect边的交点
+        vector<pair<POINT, bool>> intersection;
+        // 第一次遍历获取交点
+        do {
+            pair<POINT, bool> data = GetIntersection(spCurrent->point, spCurrent->next->point,
+            cpCurrent->point, cpCurrent->rect->point);
+            if (data.second) {
+                bool isEntry = IsEntryPoint(spCurrent->point, cpCurrent->point, cpCurrent->rect->point);
+                data.second = isEntry;
+                intersection.push_back(data);
+                // 将交点插入
+                Node* rectC = cpCurrent;
+                do {
+                    POINT p1 = rectC->point;
+                    POINT p2 = rectC->next->point;
+
+                    if ((p1.x <= data.first.x && data.first.x <= p2.x) || (p1.x >= data.first.x && data.first.x >= p2.x)) {
+                        // 两个rect之间
+                        InsertNode(CP, rectC, data.first, data.second, true, false);
+                        break;
+                    }
+
+                    rectC = rectC->next;
+                } while (rectC->isrect != true && rectC != cpCurrent);
+            }
+
+            cpCurrent = cpCurrent->rect;
+        } while (cpCurrent != CP);
+
+        // 将交点插入SP列表
+        if (intersection.size() == 1) {
+            InsertNode(SP, spCurrent, intersection[0].first, intersection[0].second, true, false);
+            spCurrent = spCurrent->next;
+        }
+        else if (intersection.size() == 2) {
+            int d1, d2;
+            d1 = pow(intersection[0].first.x - spCurrent->point.x, 2) + pow(intersection[0].first.y - spCurrent->point.y, 2);
+            d2 = pow(intersection[1].first.x - spCurrent->point.x, 2) + pow(intersection[1].first.y - spCurrent->point.y, 2);
+            // 离 spCurrent->point 近的先插入
+            if (d1 < d2) {
+                InsertNode(SP, spCurrent, intersection[0].first, intersection[0].second, true, false);
+                spCurrent = spCurrent->next;
+                InsertNode(SP, spCurrent, intersection[1].first, intersection[1].second, true, false);
+                spCurrent = spCurrent->next;
+            }
+            else {
+                InsertNode(SP, spCurrent, intersection[1].first, intersection[1].second, true, false);
+                spCurrent = spCurrent->next;
+                InsertNode(SP, spCurrent, intersection[0].first, intersection[0].second, true, false);
+                spCurrent = spCurrent->next;
+            }
+        }
+
+        spCurrent = spCurrent->next;
+    } while (spCurrent != SP);
+
+    // 遍历多边形，生成结果
+    Node* current = SP;
+    bool inSp = true;
+    do {
+        // 从入点开始
+        Node* temp = current;
+        inSp = true;
+        if (temp->isEntry && !temp->visited) {
+            std::vector<POINT> path;
+            Node* start = temp;
+
+            do {
+                temp->visited = true;
+                // 添加当前点到路径
+                path.push_back(temp->point);
+
+                // 如果是交点，切换到另一个多边形
+                if (temp->isIntersection && temp->isEntry != inSp) {
+                    // 若是入点，继续在SP，出点则前往CP
+                    temp = temp->isEntry ? FindNodeInSP(SP, temp) : FindNodeInCP(CP, temp);
+                    inSp = !inSp;
+                }
+
+                temp = temp->next;
+            } while (temp->point.x != start->point.x || temp->point.y != start->point.y);
+
+            // 保存完整路径
+            result.push_back(path);
+        }
+
+        current = current->next;
+    } while (current != SP);
+
+    return result;
+}
+
+pair<bool, bool> CutCSDraw(StoreImg& imgs, CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
     DrawInfo* choose = &(csdraw.choose);
     bool drawstate = true;
+    bool redrawFix = false;
     switch (choose->type) {
     case LINE:
     {
@@ -730,7 +949,6 @@ bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
                 MyPoint* mpe = &(choose->line.end);
                 PointToCoordinate(coordinate, start, mps->x, mps->y);
                 PointToCoordinate(coordinate, end, mpe->x, mpe->y);
-                drawstate = true;
             }
             else {
                 csdraw.index = -1;
@@ -745,30 +963,47 @@ bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
     {
         vector<POINT> points = mapMyPointsV(choose->multipoint.points, coordinate, choose->multipoint.numPoints, choose->multipoint.endNum);
         vector<POINT> npoints;
+        vector<vector<POINT>> results;
         switch (GetCutFunc(csdraw.config, CUTFUNC)) {
         case 1:
             // 裁剪
             npoints = SutherlandHodgman(cutrect, points);
+            if (npoints.size() == 0) {
+                ClearMultipoint(&(choose->multipoint));
+                csdraw.index = -1;
+                drawstate = false;
+            }
+            else {
+                InitMultipFromV(&(choose->multipoint), npoints, coordinate);
+            }
             break;
         case 2:
-            npoints = WeilerAthertonClip(cutrect, points);
+            results = WeilerAthertonClip(cutrect, points);
+            if (results.size() == 0) {
+                ClearMultipoint(&(choose->multipoint));
+                csdraw.index = -1;
+                drawstate = false;
+            }
+            else {
+                InitMultipFromV(&(choose->multipoint), results[0], coordinate);
+                for (int i = 1; i < results.size(); i++) {
+                    DrawInfo multip;
+                    multip.type = FMULTILINE;
+                    multip.proper = choose->proper;
+                    InitMultipoint(&(multip.multipoint));
+                    InitMultipFromV(&(multip.multipoint), results[i], coordinate);
+                    AddDrawInfoToStoreImg(&imgs, multip);
+                }
+                redrawFix = true;
+            }
             break;
         }
 
-        if (npoints.size() == 0) {
-            ClearMultipoint(&(choose->multipoint));
-            csdraw.index = -1;
-            drawstate = false;
-        }
-        else {
-            InitMultipFromV(&(choose->multipoint), npoints, coordinate);
-            drawstate = true;
-        }
     }
     break;
     }
 
     CalcCSDrawRect(csdraw, coordinate);
 
-    return drawstate;
+    return { drawstate ,redrawFix };
 }

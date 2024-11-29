@@ -102,11 +102,6 @@ bool InDrawDrawType(const DrawType& type) {
 	}
 }
 
-typedef enum KZDrawType {
-	KZNONE,
-	DRAWCX,				// 画垂线
-} KZDrawType;
-
 typedef struct MyDrawState MyDrawState;
 
 typedef void typeGo(MyDrawState& ms, DrawType type);
@@ -122,7 +117,6 @@ struct MyDrawState {
 	std::stack<DrawType> preType;
 	typeGo* go = nullptr;
 	typeBack* back = nullptr;
-	KZDrawType kztype = KZDrawType::KZNONE;
 	POINT lastMouseP = INITPOINT;
 	POINT lastMMouseBDown = INITPOINT;
 	POINT lastMMouseBUp = INITPOINT;
@@ -195,7 +189,20 @@ bool InState(const MyDrawState& mst, DrawType type) {
 	return mst.type == type;
 }
 
+void ClearStateP(MyDrawState& mst) {
+	mst.lastLButtonDown = INITPOINT;
+	mst.lastLButtonUp = INITPOINT;
+	mst.lastMMouseBDown = INITPOINT;
+	mst.lastMMouseBUp = INITPOINT;
+	mst.lastMouseP = INITPOINT;
+}
+
 void setTypeWithLastType(MyDrawState& mst, DrawType type) {
+	switch (type) {
+	case KZDRAW:
+		ClearStateP(mst);
+		break;
+	}
 	mst.lastType = mst.type;
 	mst.type = type;
 	mst.preType.push(type);
@@ -205,24 +212,14 @@ DrawType getType(MyDrawState& mst) {
 	return mst.type;
 }
 
-void ClearStateP(MyDrawState& mst) {
-	mst.lastLButtonDown = INITPOINT;
-	mst.lastLButtonUp = INITPOINT;
-	mst.lastMMouseBDown = INITPOINT;
-	mst.lastMMouseBUp = INITPOINT;
-	mst.lastMouseP = INITPOINT;
-}
+
 
 void RestoreFormLastType(MyDrawState& mst) {
 	if (mst.type == MMOUSEMOVE) {
 		ClearStateP(mst);
-		mst.type = mst.lastType;
-		mst.preType.pop();
 	}
-	else if (mst.type == CUTIMG) {
-		mst.type = mst.lastType;
-		mst.preType.pop();
-	}
+	mst.type = mst.lastType;
+	mst.preType.pop();
 }
 
 void InitMyDrawState(MyDrawState& mst) {
@@ -263,14 +260,8 @@ void ClearType(MyDrawState& mst) {
 	}
 }
 
-void setKZType(MyDrawState& mst, KZDrawType type) {
-	mst.type = KZDRAW;
-	mst.kztype = type;
-	ClearStateP(mst);
-}
-
 void EndKZType(MyDrawState& mst) {
-	mst.type = CHOOSEIMG;
+	RestoreFormLastType(mst);
 }
 
 void InitWindowRect(WindowRect& wr, const RECT& mainrect, const RECT& toolbarrect, const int mode) {
@@ -613,6 +604,11 @@ void ClearDrawConfig(DrawConfig& drawconfig) {
 	}
 }
 
+int ChangeShowLineState(DrawConfig& config, bool state) {
+	config.showFLine = state;
+	return 0;
+}
+
 int GetCutFunc(DrawConfig& drawconfig, int code) {
 	return drawconfig.AutoConfig[code];
 }
@@ -630,7 +626,7 @@ void ClearAutoConfig(DrawConfig& config, char code) {
 }
 
 void EnterCutMode(DrawConfig& config, int code, char func) {
-	SetAutoConfig(config, CUTFUNC, 1);
+	SetAutoConfig(config, code, func);
 	config.showFLine = false;
 }
 
@@ -830,6 +826,54 @@ void ClearCSDrawRect(CSDrawInfoRect& csdrect) {
 	csdrect.inrect = false;
 }
 
+typedef enum KZDrawType {
+	KZNONE,
+	DRAWCX,				// 画垂线
+} KZDrawType;
+
+typedef struct CuiXian {
+	bool first;
+} CuiXian;
+
+#define MYPI	3.141592653589793115997963468544185161590576171875
+
+MyPoint GetCXEnd(MyPoint start, MyPoint end, MyPoint p1, MyPoint p2) {
+	// 斜率为90度
+	if (abs(p1.y - p2.y) < 1e-6) {
+		return { start.x, end.y };
+	}
+
+	double k = -(p1.x - p2.x) / (p1.y - p2.y);
+	double x = (k * k * start.x - k * (start.y - end.y) + end.x) / (k * k + 1);;
+	double y = k * (x - start.x) + start.y;
+
+	return { x, y };
+}
+
+POINT GetCXEndP(POINT start, POINT end, POINT p1, POINT p2) {
+	// 斜率为90度
+	if (p1.x == p2.x) {
+		return { start.x, end.y };
+	}
+
+	double k = -1.0 * (p1.x - p2.x) / (p1.y - p2.y);
+	double x = (k * k * start.x - k * (start.y - end.y) + end.x) / (k * k + 1);
+	double y = k * (x - start.x) + start.y;
+
+	return { (int)x, (int)y };
+}
+
+typedef struct KZDrawInfo {
+	KZDrawType type;
+	union {
+		CuiXian cx;
+	};
+} KZDrawInfo;
+
+void setKZType(KZDrawInfo& kzdraw, KZDrawType type) {
+	kzdraw.type = type;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
@@ -842,7 +886,8 @@ DrawUnitProperty customProperty;				// 自定义绘图
 WindowRect wrect;								// 各个组件的位置
 ChooseState cs;									// 工具栏状态维护
 CSDrawInfo csdraw;								// 被选中的图元
-CSDrawInfoRect	csdrect;						// 被选中区域
+CSDrawInfoRect csdrect;							// 被选中区域
+KZDrawInfo kzdraw;								// 扩展绘制方式
 
 HDC hdcMemFixed;			// 固定图像内存DC
 HDC hdcMemPreview;			// 预览图像内存DC
