@@ -550,7 +550,6 @@ extern "C" {
 		store->maxNum = MAX_IMG_NUM;
 	}
 
-	// TODO: 为什么C语言也支持引用
 	typedef struct DrawInfoRect {
 		double minX;
 		double minY;

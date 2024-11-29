@@ -147,6 +147,7 @@
     <ClInclude Include="customSlider.h" />
     <ClInclude Include="drawAny.h" />
     <ClInclude Include="drawinfo.h" />
+    <ClInclude Include="DrawWorkSpace.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />

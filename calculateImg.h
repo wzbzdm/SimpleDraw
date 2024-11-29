@@ -163,6 +163,11 @@ void CalculateImg(StoreImg& allimg, CSDrawInfo& csdraw) {
     if (csdraw.index < 0 || csdraw.index >= allImg.endNum) return;
     CalculatePoints.clear();
     DrawInfo choose = csdraw.choose;
+    switch (choose.type) {
+    case CIRCLE:
+        CalculatePoints.push_back(choose.circle.center);
+        break;
+    }
     for (int i = 0; i < allimg.endNum; i++) {
         if (csdraw.index == i) continue;
         DrawInfo item = allimg.img[i];
@@ -581,22 +586,83 @@ bool IsInside(RECT rect, POINT pt) {
         pt.y >= rect.top && pt.y <= rect.bottom;
 }
 
-// 中点分割裁剪函数
-bool MidpointClipLine(RECT clipRect, POINT& p1, POINT& p2) {
-    if (IsInside(clipRect, p1) && IsInside(clipRect, p2)) {
-        return true; // 完全在内部，保留
-    }
-    if ((p1.x < clipRect.left && p2.x < clipRect.left) ||
-        (p1.x > clipRect.right && p2.x > clipRect.right) ||
-        (p1.y < clipRect.top && p2.y < clipRect.top) ||
-        (p1.y > clipRect.bottom && p2.y > clipRect.bottom)) {
-        return false; // 完全在外部，舍弃
+#define LEFT 1
+#define RIGHT 2
+#define BOTTOM 4
+#define TOP 8
+
+bool MidpointClipLine(const RECT& clipRect, POINT& p1, POINT& p2) {
+    POINT p3 = p1;
+    POINT p4 = p2;
+
+    // 定义编码
+    auto encode = [](const RECT& rect, POINT pt) -> int {
+        int code = 0;
+        if (pt.x < rect.left) code |= LEFT;
+        if (pt.x > rect.right) code |= RIGHT;
+        if (pt.y < rect.top) code |= TOP;
+        if (pt.y > rect.bottom) code |= BOTTOM;
+        return code;
+        };
+
+    int code1 = encode(clipRect, p1);
+    int code2 = encode(clipRect, p2);
+    int code3 = code2;
+
+    // 如果完全在裁剪窗口外
+    if ((code1 & code2) != 0) {
+        return false;
     }
 
-    // 递归裁剪中点
-    POINT mid = { (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 };
-    return MidpointClipLine(clipRect, p1, mid) && MidpointClipLine(clipRect, mid, p2);
+    // 如果完全在裁剪窗口内
+    if (code1 == 0 && code2 == 0) {
+        return true; // 不需要裁剪
+    }
+
+    // 递归裁剪函数
+    auto midpointClip = [&](POINT& p1, int& code1, POINT& p2, int& code2) {
+        while (true) {
+            POINT mid = { (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 };
+            int midCode = encode(clipRect, mid);
+
+            if (abs(mid.x - p1.x) <= 1 && abs(mid.y - p1.y) <= 1) {
+                if (code1 == 0) break;
+                p1 = mid; // 找到交点
+                code1 = midCode;
+                break;
+            }
+
+            // 判断中点与 p1 是否完全在同一区域外
+            if ((code1 & midCode) != 0) {
+                p1 = mid; // 更新起点到中点
+                code1 = midCode;
+            }
+            else {
+                p2 = mid; // 更新终点到中点
+                code2 = midCode;
+            }
+        }
+        };
+
+    // 找到离 p1 最近的交点
+    midpointClip(p1, code1, p2, code2);
+
+    // 保存交点P3
+    p3 = p1;
+    // 恢复P2
+    p2 = p4;
+    code2 = code3;
+
+    if (code1 == 0 && code2 == 0) return true;
+
+    // 离 p2 最近的交点
+    midpointClip(p2, code2, p1, code1);
+
+    p1 = p3;
+
+    return true;
 }
+
 
 // 判断点是否在某条裁剪边内
 bool Inside(POINT p, RECT clipRect, int edge) {
@@ -611,7 +677,7 @@ bool Inside(POINT p, RECT clipRect, int edge) {
 
 // 求交点
 POINT Intersect(POINT p1, POINT p2, RECT clipRect, int edge) {
-    POINT inter;
+    POINT inter = {};
     if (edge == 0) { // 上边
         inter.x = p1.x + (p2.x - p1.x) * (clipRect.top - p1.y) / (p2.y - p1.y);
         inter.y = clipRect.top;
@@ -682,4 +748,49 @@ std::vector<POINT> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon)
     // 对结果进行排序、去重，形成最终的裁剪多边形
     clippedPolygon = polygon;
     return clippedPolygon;
+}
+
+bool CutCSDraw(CSDrawInfo& csdraw, const RECT& cutrect, Coordinate coordinate) {
+    DrawInfo* choose = &(csdraw.choose);
+    bool drawstate;
+    switch (choose->type) {
+    case LINE:
+    {
+        switch (GetCutFunc(csdraw.config, CUTFUNC)) {
+        case 1:
+            POINT start = mapCoordinate(coordinate, choose->line.start);
+            POINT end = mapCoordinate(coordinate, choose->line.end);
+            if (MidpointClipLine(cutrect, start, end)) {
+                MyPoint* mps = &(choose->line.start);
+                MyPoint* mpe = &(choose->line.end);
+                PointToCoordinate(coordinate, start, mps->x, mps->y);
+                PointToCoordinate(coordinate, end, mpe->x, mpe->y);
+                drawstate = true;
+            }
+            else {
+                csdraw.index = -1;
+                drawstate = false;
+            }
+            
+            break;
+        }
+    }
+    break;
+    case FMULTILINE:
+    {
+        switch (GetCutFunc(csdraw.config, CUTFUNC)) {
+        case 1:
+
+            break;
+        case 2:
+
+            break;
+        }
+    }
+    break;
+    }
+
+    CalcCSDrawRect(csdraw, coordinate);
+
+    return drawstate;
 }

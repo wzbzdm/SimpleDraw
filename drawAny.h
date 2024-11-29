@@ -95,6 +95,25 @@ int DrawXLine(HDC hdc, POINT start, POINT end, int color, int width) {
 	return 0;
 }
 
+int DrawLine(HDC hdc, POINT start, POINT end, int width, int color) {
+	HPEN hPen = CreatePen(PS_SOLID, width, color);
+	SelectObject(hdc, hPen);
+	// 创建无色画刷
+	LOGBRUSH lbb;
+	lbb.lbStyle = BS_NULL;
+	lbb.lbColor = RGB(0, 0, 0);
+	lbb.lbHatch = 0;
+	HBRUSH hNullBrush = CreateBrushIndirect(&lbb);
+	SelectObject(hdc, hNullBrush);
+	MoveToEx(hdc, start.x, start.y, NULL);
+	LineTo(hdc, end.x, end.y);
+
+	DeleteObject(hPen);
+	DeleteObject(hNullBrush);
+
+	return 0;
+}
+
 int DrawLine(HDC hdc, POINT start, POINT end, const DrawUnitProperty* pro) {
 	HPEN hPen = CreatePen(PS_SOLID, pro->width, pro->color);
 	SelectObject(hdc, hPen);

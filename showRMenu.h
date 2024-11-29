@@ -7,14 +7,20 @@
 #define POPMENUINTERVAL     5
 #define IDBASE      100
 
-#define ARGS_NONE        0
+#define ARGS_NONE           0
 typedef void (*MenuItemHandlerN)();
 
-#define ARGS_HWND        1
+#define ARGS_HWND           1
 typedef void (*MenuItemHandlerH)(HWND hwnd);
 
-#define ARGS_CSDRAW	  2
+#define ARGS_CSDRAW	        2
 typedef void (*MenuItemHandlerC)(CSDrawInfo* csdraw);
+
+#define ARGS_CUT            3
+typedef void (*MenuItemHandlerCut)(MyDrawState& mst, CSDrawInfo& csdraw);
+
+#define ARGS_CJSF           10
+typedef void (*MenuItemHandlerCJSF)(StoreImg& imgs, const CSDrawInfoRect& rect, Coordinate& coor);
 
 typedef void* MenuItemHandler;
 
@@ -22,6 +28,8 @@ typedef enum HandlerType {
 	HANDLER_NONE = ARGS_NONE,
     HANDLER_HWND = ARGS_HWND,
 	HANDLER_CSDRAW = ARGS_CSDRAW,
+	HANDLER_CJSF = ARGS_CJSF,
+    HANDLER_CUT = ARGS_CUT,
 } HandlerType;
 
 typedef struct MenuItemData {
@@ -144,9 +152,6 @@ void InitRightMenuNone(RightMenuManager& manager) {
     AddMenuItem(manager, L"测试", data);
 }
 
-// 三种裁剪算法
-
-
 void InitRightMenuChoose(RightMenuManager& manager) {
     InitMenuStyle(manager.style, 0);
 
@@ -159,6 +164,14 @@ void MenuLineCX(HWND hwnd) {
 
 }
 
+// 线的裁减算法
+void MenuLineCut(MyDrawState& mst, CSDrawInfo& csdraw) {
+    // 进入 CUTIMG 模式
+    setTypeWithLastType(mst, CUTIMG);
+    // 进入 CUT 模式
+    EnterCutMode(csdraw.config, CUTFUNC, 1);
+}
+
 void InitRightMenuLine(RightMenuManager& manager) {
 	InitMenuStyle(manager.style, POPMENUINTERVAL);
 
@@ -168,6 +181,10 @@ void InitRightMenuLine(RightMenuManager& manager) {
 	data.handler = (MenuItemHandler)&MenuLineCX;
 	data.type = HANDLER_HWND;
     AddMenuItem(manager, L"作垂线", data);
+
+    data.handler = (MenuItemHandler)&MenuLineCut;
+    data.type = HANDLER_CUT;
+    AddMenuItem(manager, L"裁剪", data);
 
     AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }
@@ -212,10 +229,35 @@ void InitRightMenuMultiLine(RightMenuManager& manager) {
 	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }
 
+// 多边形的裁减算法
+void MenuFMultiCutSH(MyDrawState& mst, CSDrawInfo& csdraw) {
+    // 进入 CUTIMG 模式
+    setTypeWithLastType(mst, CUTIMG);
+    // 设置 CUT 函数
+    EnterCutMode(csdraw.config, CUTFUNC, 1);
+}
+
+// 多边形的裁减算法
+void MenuFMultiCutWA(MyDrawState& mst, CSDrawInfo& csdraw) {
+    // 进入 CUTIMG 模式
+    setTypeWithLastType(mst, CUTIMG);
+    // 设置 CUT 函数
+    EnterCutMode(csdraw.config, CUTFUNC, 2);
+}
+
 void InitRightMenuFMultiLine(RightMenuManager& manager) {
 	InitMenuStyle(manager.style, POPMENUINTERVAL);
 
 	InitBaseMenu(manager);
+
+    MenuItemData data;
+    data.handler = (MenuItemHandler)&MenuFMultiCutSH;
+    data.type = HANDLER_CUT;
+    AddMenuItem(manager, L"Sutherland-Hodgman 裁减", data);
+
+    data.handler = (MenuItemHandler)&MenuFMultiCutWA;
+    data.type = HANDLER_CUT;
+    AddMenuItem(manager, L"Weiler-AthertonWeiler 裁剪", data);
 
 	AppendMenu(manager.rightPopMenu, MF_SEPARATOR, 0, NULL);
 }

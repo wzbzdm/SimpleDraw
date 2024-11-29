@@ -27,11 +27,13 @@ void ShutdownGDIPlus() {
 	GdiplusShutdown(gdiplusToken);
 }
 
-#define MAINCOLOR  RGB(230, 230, 230)
-#define SMALLCOLOR RGB(127, 127, 127)
-#define CANVASCOLOR RGB(255, 255, 255)
-#define STATUSBARCOLOR RGB(75, 75, 75)
-#define SIDEBARCOLOR RGB(215, 220, 220)
+#define MAINCOLOR		RGB(230, 230, 230)
+#define SMALLCOLOR		RGB(127, 127, 127)
+#define CANVASCOLOR		RGB(255, 255, 255)
+#define BLACKCOLOR		RGB(0, 0, 0)
+#define CUTRECTCOLOR	RGB(0,255,0)
+#define STATUSBARCOLOR	RGB(75, 75, 75)
+#define SIDEBARCOLOR	RGB(215, 220, 220)
 
 POINT getClientPos(LPARAM lParam) {
 	POINT point;
@@ -460,19 +462,22 @@ void DrawDrawInfoRect(HDC hdc, const DrawInfoRect& rect) {
 	DrawXLine(hdc, p4, p1, HELPLINECORLOR, 1);
 }
 
+#define HELPSIZE	3
+
 // 绘制选中图形的辅助线
 void drawCosCSDraw(HDC hdc, CSDrawInfo* csdraw) {
 	if (csdraw->index == -1) return;
+	if (!csdraw->config.showFLine) return;
 	DrawDrawInfoRect(hdc, csdraw->rect);
 	switch (csdraw->choose.type) {
 	case LINE:
-		DrawLineHelp(hdc, csdraw->choose.line, 3, HELPPOINTCOLOR);
+		DrawLineHelp(hdc, csdraw->choose.line, HELPSIZE, HELPPOINTCOLOR);
 		break;
 	case RECTANGLE:
-		DrawRectangleHelp(hdc, csdraw->choose.rectangle, 3, HELPPOINTCOLOR);
+		DrawRectangleHelp(hdc, csdraw->choose.rectangle, HELPSIZE, HELPPOINTCOLOR);
 		break;
 	case CIRCLE:
-		DrawCircleHelp(hdc, csdraw->choose.circle, 3, HELPPOINTCOLOR);
+		DrawCircleHelp(hdc, csdraw->choose.circle, HELPSIZE, HELPPOINTCOLOR);
 		break;
 	case MULTILINE:
 	case FMULTILINE:
@@ -554,6 +559,7 @@ void RedrawFixedContent(HWND hCWnd, HDC hdc) {
 
 void drawCosCalcPoint(HDC hdc) {
 	if (csdraw.index == -1) return;
+	if (!csdraw.config.showFLine) return;
 	CalculateImg(allImg, csdraw);
 	ShowAllCalPoint(hdc, coordinate);
 }
@@ -581,6 +587,15 @@ void EnableMouseTracking(HWND hWnd) {
 	tme.dwHoverTime = 0;     // 设置为0以立即触发事件
 
 	TrackMouseEvent(&tme);
+}
+
+void ShowCutWindow(HDC hdc, POINT point) {
+	POINT lastp = mst.lastLButtonDown;
+
+	DrawLine(hdc, {lastp.x, point.y}, {lastp.x, lastp.y}, 2, CUTRECTCOLOR);
+	DrawLine(hdc, {lastp.x, lastp.y}, {point.x, lastp.y}, 2, CUTRECTCOLOR);
+	DrawLine(hdc, {point.x, lastp.y}, {point.x, point.y}, 2, CUTRECTCOLOR);
+	DrawLine(hdc, { point.x, point.y }, { lastp.x, point.y }, 2, CUTRECTCOLOR);
 }
 
 void ShowPointInWindow(HDC hdc, MyPoint mp) {
@@ -696,10 +711,16 @@ void UpdateStatusBarCoordinates(HWND hStatusBar, double x, double y) {
 }
 
 void SetToolBarCheck(HWND toolbar, ChooseState &cs, int id) {
-	// 取消之前的选择
-	SendMessage(toolbar, TB_CHECKBUTTON, cs.choose, FALSE);
+	if (cs.choose != -1) {
+		// 取消之前的选择
+		SendMessage(toolbar, TB_CHECKBUTTON, cs.choose, FALSE);
+	}
+	
 	// 设置新的选择
-	SendMessage(toolbar, TB_CHECKBUTTON, id, TRUE);
+	if (id != -1) {
+		SendMessage(toolbar, TB_CHECKBUTTON, id, TRUE);
+	}
+	
 	SetActiveID(cs, id);
 }
 

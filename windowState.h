@@ -65,6 +65,7 @@ typedef struct windowRect {
 } WindowRect;
 
 typedef enum DrawType {
+	CUTIMG,
 	CHOOSEIMG,
 	CHOOSEN,
 	DRAWLINE,
@@ -124,8 +125,6 @@ struct MyDrawState {
 	POINT lastMMouseBUp = INITPOINT;
 	POINT lastLButtonDown = INITPOINT;
 	POINT lastLButtonUp = INITPOINT;
-
-	MyDrawState() = default;
 };
 
 void StartChoose(MyDrawState& mst) {
@@ -214,6 +213,10 @@ void ClearStateP(MyDrawState& mst) {
 void RestoreFormLastType(MyDrawState& mst) {
 	if (mst.type == MMOUSEMOVE) {
 		ClearStateP(mst);
+		mst.type = mst.lastType;
+		mst.preType.pop();
+	}
+	else if (mst.type == CUTIMG) {
 		mst.type = mst.lastType;
 		mst.preType.pop();
 	}
@@ -381,6 +384,11 @@ typedef struct Coordinate {
 	double radius;
 } Coordinate;
 
+void MoveCoordinateCenter(Coordinate& coor, int x, int y) {
+	coor.center.x += x;
+	coor.center.y += y;
+}
+
 void SetCoordinate(Coordinate& coor, POINT center, const double radius) {
 	coor.center = center;
 	coor.radius = radius;
@@ -391,6 +399,13 @@ POINT mapCoordinate(const Coordinate& coor, double x, double y) {
 	POINT pt;
 	pt.x = (LONG)(coor.center.x + x / coor.radius);
 	pt.y = (LONG)(coor.center.y - y / coor.radius);
+	return pt;
+}
+
+POINT mapCoordinate(const Coordinate& coor, MyPoint mp) {
+	POINT pt;
+	pt.x = (LONG)(coor.center.x + mp.x / coor.radius);
+	pt.y = (LONG)(coor.center.y - mp.y / coor.radius);
 	return pt;
 }
 
@@ -498,9 +513,50 @@ typedef enum DrawConfigMode {
 	ROTATE			// 旋转
 } DrawConfigMode;
 
+#define CUTFUNC		0
+
+constexpr int AUTOCONFIGLEN = 4;
+
 typedef struct DrawConfig {
 	DrawConfigMode mode;
+	bool showFLine = true;
+	bool inCut = false;
+	char AutoConfig[AUTOCONFIGLEN];		// 四个字节
 } DrawConfig;
+
+void ClearDrawConfig(DrawConfig& drawconfig) {
+	drawconfig.mode = ZOOM;
+	drawconfig.showFLine = true;
+	drawconfig.inCut = false;
+	for (int i = 0; i < AUTOCONFIGLEN; i++) {
+		drawconfig.AutoConfig[i] = 0;
+	}
+}
+
+int GetCutFunc(DrawConfig& drawconfig, int code) {
+	return drawconfig.AutoConfig[code];
+}
+
+void SetAutoConfig(DrawConfig& config, int code, char func) {
+	if (code >= sizeof(int)) return;
+	
+	config.AutoConfig[code] = func;
+}
+
+void ClearAutoConfig(DrawConfig& config, char code) {
+	if (code >= sizeof(int)) return;
+
+	config.AutoConfig[code] = 0;
+}
+
+void EnterCutMode(DrawConfig& config, int code, char func) {
+	SetAutoConfig(config, CUTFUNC, 1);
+	config.showFLine = false;
+}
+
+void EndCutMode(DrawConfig& config) {
+	config.showFLine = true;
+}
 
 typedef struct CSDrawInfo {
 	int index;
@@ -509,6 +565,28 @@ typedef struct CSDrawInfo {
 	DrawInfoRect rect;
 	CSDrawInfo() : index(-1), choose(), rect(), config() {};
 } CSDrawInfo;
+
+RECT getCutRect(POINT start, POINT end) {
+	RECT rect;
+	rect.left = min(start.x, end.x);
+	rect.right = max(start.x, end.x);
+	rect.top = min(start.y, end.y);
+	rect.bottom = max(start.y, end.y);
+
+	return rect;
+}
+
+void StartCut(CSDrawInfo& csdraw) {
+	csdraw.config.inCut = true;
+}
+
+bool InCut(CSDrawInfo& csdraw) {
+	return csdraw.config.inCut;
+}
+
+void EndCut(CSDrawInfo& csdraw) {
+	csdraw.config.inCut = false;
+}
 
 void ClearCSDrawConf(CSDrawInfo& csdraw) {
 	csdraw.config.mode = DrawConfigMode::ZOOM;
@@ -524,11 +602,13 @@ void SetCSDrawMode(CSDrawInfo& csdraw, DrawConfigMode mode) {
 
 void InitCSDrawInfo(CSDrawInfo& csdraw) {
 	csdraw.index = -1;
+	ClearDrawConfig(csdraw.config);
 }
 
 void ClearCSDrawInfo(CSDrawInfo& csdraw) {
 	if (csdraw.index != -1) {
 		ClearDrawInfo(&(csdraw.choose));
+		ClearDrawConfig(csdraw.config);
 		csdraw.index = -1;
 	}
 }
@@ -568,6 +648,7 @@ void FixMinWoH(CSDrawInfo& csdraw, const Coordinate &coor) {
 }
 
 void CalcCSDrawRect(CSDrawInfo& csdraw, const Coordinate& coor) {
+	if (csdraw.index == -1) return;
 	csdraw.rect = INITDRAWINFORECT;
 	GetDrawInfoRect(&(csdraw.choose), &(csdraw.rect));
 	FixMinWoH(csdraw, coor);
@@ -594,6 +675,7 @@ typedef struct CSDrawInfoRect {
 	MyPoint end;		// 选择矩形终点
 	bool hasChoose;		// 是否是被选择状态
 	bool inrect;		// 光标是否在区域内
+	int select;			// 选择的图元
 } CSDrawInfoRect;
 
 void MoveInRect(CSDrawInfoRect& csdrect) {
@@ -614,6 +696,7 @@ void StartCSDrawRect(CSDrawInfoRect& csdrect) {
 
 void EndCSDrawRect(CSDrawInfoRect& csdrect) {
 	csdrect.hasChoose = false;
+	csdrect.inrect = false;
 }
 
 bool InCSDrawRect(const CSDrawInfoRect& csdrect) {
@@ -660,11 +743,18 @@ void MoveCSDrawInfoRect(CSDrawInfoRect& csdrect, double x, double y) {
 	csdrect.end.y += y;
 }
 
+void ClearCSDrawRect(CSDrawInfoRect& csdrect) {
+	csdrect.start = INITMYPOINT;
+	csdrect.end = INITMYPOINT;
+	csdrect.hasChoose = false;
+	csdrect.inrect = false;
+}
+
 // TODO: 工作区?
 // 静态数据
 SYSTEMMODE systemode = DEFAULTSYSTEMMODE;
 WindowState wstate = { 800, 650, 45 };
-MyDrawState mst;		// 默认状态
+MyDrawState mst;								// 默认状态
 Coordinate coordinate;							// 坐标系
 StoreImg allImg;								// 存储所有的图形
 DrawingInfo drawing;							// 当前正在绘制的图形
