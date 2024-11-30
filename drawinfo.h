@@ -809,6 +809,8 @@ constexpr char FILE_VERSION[FILEVERSIONL] = "1.5";
 		case RECTANGLE:
 			PointToBytes(draw.rectangle.start, &buffer, byteSize); // Add start point
 			PointToBytes(draw.rectangle.end, &buffer, byteSize);   // Add end point
+			PointToBytes(draw.rectangle.add1, &buffer, byteSize);  // Add add1 point
+			PointToBytes(draw.rectangle.add2, &buffer, byteSize);  // Add add2 point
 			break;
 
 		case CURVE:
@@ -849,6 +851,8 @@ constexpr char FILE_VERSION[FILEVERSIONL] = "1.5";
 		case RECTANGLE:
 			draw.rectangle.start = BytesToPoint(buffer, index);
 			draw.rectangle.end = BytesToPoint(buffer, index);
+			draw.rectangle.add1 = BytesToPoint(buffer, index);
+			draw.rectangle.add2 = BytesToPoint(buffer, index);
 			break;
 
 		case CURVE:
