@@ -688,12 +688,17 @@ typedef struct Node {
     POINT point;
     Node* next;
     Node* rect;
+    Node* last;                     // 对于裁剪多边形当前插入位置的末尾
 
     bool isrect;                    // 是否为裁剪矩形的点
     bool isIntersection = false;    // 是否为交点
     bool isEntry = false;           // 是否为进入点
     bool visited = false;           // 是否已访问
 } Node;
+
+bool EqulP(const POINT& p1, const POINT& p2) {
+    return p1.x == p2.x && p1.y == p2.y;
+}
 
 // 判断是否有交点
 pair<POINT, bool> GetIntersection(const POINT& p1, const POINT& p2, const POINT& c1, const POINT& c2) {
@@ -706,16 +711,20 @@ pair<POINT, bool> GetIntersection(const POINT& p1, const POINT& p2, const POINT&
     float b2 = c1.x - c2.x;
     float c2_eq = a2 * c1.x + b2 * c1.y;
 
+    // 斜率相同
     float det = a1 * b2 - a2 * b1;
     if (std::abs(det) < 1e-5) return { inter, false };
 
     inter.x = static_cast<LONG>((b2 * c1_eq - b1 * c2_eq) / det);
     inter.y = static_cast<LONG>((a1 * c2_eq - a2 * c1_eq) / det);
 
-    // 检查交点是否在两线段上, 不包含端点
+    // 检查交点是否在两线段上包含端点
     auto isBetween = [](LONG val, LONG minVal, LONG maxVal) {
         return val >= min(minVal, maxVal) && val <= max(minVal, maxVal);
         };
+
+    // 如果交点等于四个端点之一
+    if (EqulP(inter, p1) || EqulP(inter, p2) || EqulP(inter, c1) || EqulP(inter, c2)) return { inter, false };
 
     if (isBetween(inter.x, p1.x, p2.x) &&
         isBetween(inter.y, p1.y, p2.y) &&
@@ -744,6 +753,7 @@ Node* InsertNode(Node*& head, Node* position, const POINT& intersection, bool is
         head->next = head; // 自环
         if (isrect) {
             head->rect = head;
+            head->last = newNode;
         }
         return head;
     }
@@ -751,6 +761,7 @@ Node* InsertNode(Node*& head, Node* position, const POINT& intersection, bool is
     if (isrect) {
         newNode->rect = position->rect;
         position->rect = newNode;
+        newNode->last = newNode;
     }
     newNode->next = position->next;
     position->next = newNode;
@@ -797,6 +808,35 @@ int InRECT(POINT p, RECT rect) {
         // 矩形上
         return 0;
     }
+}
+
+int InMulti(POINT p, const std::vector<POINT>& list) {
+    int count = 0;
+    int n = list.size();
+
+    for (int i = 0; i < n; ++i) {
+        const POINT& p1 = list[i];
+        const POINT& p2 = list[(i + 1) % n];
+
+        // 检查点是否在边上
+        if ((p.y - p1.y) * (p2.x - p1.x) == (p.x - p1.x) * (p2.y - p1.y)) { // 共线判断
+            if (p.x >= min(p1.x, p2.x) && p.x <= max(p1.x, p2.x) &&
+                p.y >= min(p1.y, p2.y) && p.y <= max(p1.y, p2.y)) {
+                return 0; // 点在边上
+            }
+        }
+
+        // 射线法判断
+        if ((p1.y > p.y) != (p2.y > p.y)) {
+            double xIntersect = (double)(p.y - p1.y) * (p2.x - p1.x) / (p2.y - p1.y) + p1.x;
+            if (p.x < xIntersect) {
+                count++;
+            }
+        }
+    }
+
+    // 如果交点数为奇数，点在多边形内部；否则在外部
+    return count % 2 == 1 ? 1 : -1;
 }
 
 bool CheckFMulti(RECT clipRect, std::vector<POINT> polygon) {
@@ -866,6 +906,11 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
                 bool isEntry = IsEntryPoint(spCurrent->point, cpCurrent->point, cpCurrent->rect->point);
                 data.second = isEntry;
                 intersection.push_back(data);
+                // 交叉多边形
+                // 将交点插入, 插入当前rect到下一个rect之间的最后一个next末尾
+                //Node* last = InsertNode(CP, cpCurrent->last, data.first, data.second, true, false);
+                //cpCurrent->last = last;
+
                 // 将交点插入
                 Node* rectC = cpCurrent;
                 do {
@@ -878,7 +923,7 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
                             break;
                         }
                     }
-                    else if(p1.y == p2.y) {
+                    else if (p1.y == p2.y) {
                         if ((p1.x < data.first.x && data.first.x < p2.x) || (p1.x > data.first.x && data.first.x > p2.x)) {
                             // 两个rect之间
                             InsertNode(CP, rectC, data.first, data.second, true, false);
@@ -920,11 +965,29 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
         spCurrent = spCurrent->next;
     } while (spCurrent != SP);
 
+    // 调整CP循环队列
+    // 交叉多边形
+    //Node* cpCurrent = CP;
+    //do {
+    //    // 第一个节点为入点
+    //    if (cpCurrent->next->isEntry) {
+    //        // 找到指向最后一个节点的 Node
+    //        Node* p = cpCurrent;
+    //        
+    //        p->last->next = p->next;
+    //        p->next = p->next->next;
+    //        p->last->next->next = p->rect;
+    //        p->last = p->last->next;
+    //    }
+    //    cpCurrent = cpCurrent->rect;
+    //} while (cpCurrent != CP);
+
     // 如果没有交点
     if (!hasInter) {
+        bool allInRect = true;     // 全在矩形上
         for (int i = 0; i < polygon.size(); i++) {
             int code = InRECT(polygon[i], clipRect);
-            // 如果全在矩形内部
+            // 多边形点全在矩形内部
             if (code == 1) {
                 std::vector<POINT> rect;
                 for (POINT p : polygon) {
@@ -933,16 +996,51 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
                 result.push_back(rect);
                 return result;
             }
-            // 矩形外
+            // 多边形点都在矩形外
             else if(code == -1) {
-                std::vector<POINT> rect;
-                rect.push_back({ clipRect.left, clipRect.top });
-                rect.push_back({ clipRect.left, clipRect.bottom });
-                rect.push_back({ clipRect.right, clipRect.bottom });
-                rect.push_back({ clipRect.right, clipRect.top });
-                result.push_back(rect);
-                return result;
+                bool allInMulti = true;
+                allInRect = false;
+                // 矩形在多边形内部
+                for (int j = 0; j < clipPolygon.size(); j++) {
+                    int inMul = InMulti(clipPolygon[j], polygon);
+                    // 在多边形内部
+                    if (inMul == 1) {
+                        std::vector<POINT> rect;
+                        rect.push_back({ clipRect.left, clipRect.top });
+                        rect.push_back({ clipRect.left, clipRect.bottom });
+                        rect.push_back({ clipRect.right, clipRect.bottom });
+                        rect.push_back({ clipRect.right, clipRect.top });
+                        result.push_back(rect);
+                        return result;
+                    }
+                    // 在多边形外部，退出
+                    else if (inMul == -1) {
+                        allInMulti = false;
+                        break;
+                    }
+                }
+
+                // 矩形的点全在多边形上
+                if (allInMulti) {
+                    std::vector<POINT> rect;
+                    rect.push_back({ clipRect.left, clipRect.top });
+                    rect.push_back({ clipRect.left, clipRect.bottom });
+                    rect.push_back({ clipRect.right, clipRect.bottom });
+                    rect.push_back({ clipRect.right, clipRect.top });
+                    result.push_back(rect);
+                    return result;
+                }
             }
+        }
+
+        // 多边形的点全在矩形上
+        if (allInRect) {
+            std::vector<POINT> rect;
+            for (POINT p : polygon) {
+                rect.push_back(p);
+            }
+            result.push_back(rect);
+            return result;
         }
     }
 
