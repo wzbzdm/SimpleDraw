@@ -786,32 +786,44 @@ Node* FindNodeInSP(Node* SP, Node* intersection) {
     return nullptr;
 }
 
-bool InRECT(POINT p, RECT rect) {
-    return (p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom);
+int InRECT(POINT p, RECT rect) {
+    if (p.x > rect.left && p.x < rect.right && p.y > rect.top && p.y < rect.bottom) {
+        // 矩形内
+        return 1;
+    }
+    else {
+        // 矩形外
+        if (p.x < rect.left || p.x > rect.right || p.y < rect.top || p.y > rect.bottom) return -1;
+        // 矩形上
+        return 0;
+    }
 }
 
-bool IsInFMulti(RECT clipRect, std::vector<POINT> polygon) {
-    for (POINT p : polygon) {
-        if (InRECT(p, clipRect)) return false;
+bool CheckFMulti(RECT clipRect, std::vector<POINT> polygon) {
+    bool ssz = true;
+    double area = 0.0;
+    int n = polygon.size();
+    for (int i = 0; i < n; i++) {
+        const POINT& p1 = polygon[i];
+        const POINT& p2 = polygon[(i + 1) % n];
+        area += p1.x * p2.y - p1.y * p2.x;
     }
-
-    return true;
+    if (area < 0) ssz = false;
+    return ssz;
 }
 
 // Weiler-Atherton多边形裁剪
 std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<POINT> polygon) {
     // 存储结果的容器
     std::vector<std::vector<POINT>> result;
-    // 全在多边形区域内
-    if (IsInFMulti(clipRect, polygon)) {
-        std::vector<POINT> rect;
-        rect.push_back({ clipRect.left, clipRect.top });
-        rect.push_back({ clipRect.left, clipRect.bottom });
-        rect.push_back({ clipRect.right, clipRect.bottom });
-        rect.push_back({ clipRect.right, clipRect.top });
-        result.push_back(rect);
-        return result;
+    // 检查多边形
+    bool check = CheckFMulti(clipRect, polygon);
+
+    // 逆时针，反向
+    if (!check) {
+        reverse(polygon.begin(), polygon.end());
     }
+
     // 初始化输入多边形（SP）和裁剪多边形（CP）的环形链表
     Node* SP = nullptr;
     Node* CP = nullptr;
@@ -822,7 +834,8 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
     POINT bottomRight = { clipRect.right, clipRect.bottom };
     POINT bottomLeft = { clipRect.left, clipRect.bottom };
 
-    std::vector<POINT> clipPolygon = { topLeft, topRight, bottomRight, bottomLeft, topLeft};
+    std::vector<POINT> clipPolygon = { topLeft, topRight, bottomRight, bottomLeft, topLeft };
+    
     Node* CPi = CP;
     for (size_t i = 0; i < clipPolygon.size(); ++i) {
         CPi = InsertNode(CPi, CPi, clipPolygon[i], false, false, true);
@@ -837,6 +850,7 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
     SPi = InsertNode(SPi, SPi, polygon[0], false, false, false);
     SP = SPi->next;
 
+    bool hasInter = false;
     // 计算交点并插入
     Node* spCurrent = SP;
     do {
@@ -848,6 +862,7 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
             pair<POINT, bool> data = GetIntersection(spCurrent->point, spCurrent->next->point,
             cpCurrent->point, cpCurrent->rect->point);
             if (data.second) {
+                hasInter = true;
                 bool isEntry = IsEntryPoint(spCurrent->point, cpCurrent->point, cpCurrent->rect->point);
                 data.second = isEntry;
                 intersection.push_back(data);
@@ -856,11 +871,19 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
                 do {
                     POINT p1 = rectC->point;
                     POINT p2 = rectC->next->point;
-
-                    if ((p1.x <= data.first.x && data.first.x <= p2.x) || (p1.x >= data.first.x && data.first.x >= p2.x)) {
-                        // 两个rect之间
-                        InsertNode(CP, rectC, data.first, data.second, true, false);
-                        break;
+                    if (p1.x == p2.x) {
+                        if ((p1.y < data.first.y && data.first.y < p2.y) || (p1.y > data.first.y && data.first.y > p2.y)) {
+                            // 两个rect之间
+                            InsertNode(CP, rectC, data.first, data.second, true, false);
+                            break;
+                        }
+                    }
+                    else if(p1.y == p2.y) {
+                        if ((p1.x < data.first.x && data.first.x < p2.x) || (p1.x > data.first.x && data.first.x > p2.x)) {
+                            // 两个rect之间
+                            InsertNode(CP, rectC, data.first, data.second, true, false);
+                            break;
+                        }
                     }
 
                     rectC = rectC->next;
@@ -897,6 +920,32 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
         spCurrent = spCurrent->next;
     } while (spCurrent != SP);
 
+    // 如果没有交点
+    if (!hasInter) {
+        for (int i = 0; i < polygon.size(); i++) {
+            int code = InRECT(polygon[i], clipRect);
+            // 如果全在矩形内部
+            if (code == 1) {
+                std::vector<POINT> rect;
+                for (POINT p : polygon) {
+                    rect.push_back(p);
+                }
+                result.push_back(rect);
+                return result;
+            }
+            // 矩形外
+            else if(code == -1) {
+                std::vector<POINT> rect;
+                rect.push_back({ clipRect.left, clipRect.top });
+                rect.push_back({ clipRect.left, clipRect.bottom });
+                rect.push_back({ clipRect.right, clipRect.bottom });
+                rect.push_back({ clipRect.right, clipRect.top });
+                result.push_back(rect);
+                return result;
+            }
+        }
+    }
+
     // 遍历多边形，生成结果
     Node* current = SP;
     bool inSp = true;
@@ -917,6 +966,7 @@ std::vector<std::vector<POINT>> WeilerAthertonClip(RECT clipRect, std::vector<PO
                 if (temp->isIntersection && temp->isEntry != inSp) {
                     // 若是入点，继续在SP，出点则前往CP
                     temp = temp->isEntry ? FindNodeInSP(SP, temp) : FindNodeInCP(CP, temp);
+                    temp->visited = true;
                     inSp = !inSp;
                 }
 
