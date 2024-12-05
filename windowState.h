@@ -1,6 +1,7 @@
 #ifndef WINDOWSIZE_H
 #define WINDOWSIZE_H
 
+#include "2D/drawinfo.h"
 #include <Windows.h>
 #include <stack>
 #include <vector>
@@ -94,6 +95,7 @@ bool InDrawDrawType(const DrawType& type) {
 	case CHOOSEN:
 	case MMOUSEMOVE:
 		return false;
+	case CUTIMG:
 	case KZDRAW:
 	case DRAWLINE:
 	case DRAWCIRCLE:
@@ -103,6 +105,8 @@ bool InDrawDrawType(const DrawType& type) {
 	case DRAWBCURVE:
 	case DRAWCURVE:
 		return true;
+	default:
+		return false;
 	}
 }
 

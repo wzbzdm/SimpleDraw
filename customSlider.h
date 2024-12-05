@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <tchar.h>
-#include "SimpleDraw.h"
 #pragma comment(lib, "Comctl32.lib")
 
 #define SIDEBORDER	25

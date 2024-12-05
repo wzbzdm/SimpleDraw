@@ -143,10 +143,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="2D\drawinfo.h" />
+    <ClInclude Include="3D\base.h" />
     <ClInclude Include="calculateImg.h" />
     <ClInclude Include="customSlider.h" />
     <ClInclude Include="drawAny.h" />
-    <ClInclude Include="drawinfo.h" />
     <ClInclude Include="DrawWorkSpace.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />

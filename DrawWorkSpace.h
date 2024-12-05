@@ -2,7 +2,6 @@
 
 // TODO: 工作区
 
-#include "drawinfo.h"
 #include "windowState.h"
 #include <vector>
 
