@@ -29,12 +29,16 @@ using namespace std;
 #define ILLEGELPOINT		-1
 #define INITPOINT			{ ILLEGELPOINT, ILLEGELPOINT}
 
-#define CanvasMode			1		// 画布模式
-#define CoordinateMode		2		// 坐标模式
 #define DEFAULTSYSTEMMODE	{ CoordinateMode }
 
+typedef enum WorkType {
+	CanvasMode,
+	CoordinateMode,
+	ThreeDMode
+} WorkType;
+
 typedef struct SYSTEMMODE {
-	int worktype;
+	WorkType worktype;
 } SYSTEMMODE;
 
 bool HFPoint(const POINT* pt) {
