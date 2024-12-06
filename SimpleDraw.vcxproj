@@ -149,12 +149,14 @@
     <ClInclude Include="customSlider.h" />
     <ClInclude Include="drawAny.h" />
     <ClInclude Include="DrawWorkSpace.h" />
+    <ClInclude Include="EventHandler.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="showRMenu.h" />
     <ClInclude Include="SimpleDraw.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="WindowControl.h" />
     <ClInclude Include="windowState.h" />
     <ClInclude Include="ywljDraw.h" />
   </ItemGroup>
