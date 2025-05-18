@@ -1,6 +1,7 @@
 #ifndef WINDOWSIZE_H
 #define WINDOWSIZE_H
 
+#include "2D/drawinfo.h"
 #include <Windows.h>
 #include <stack>
 #include <vector>
@@ -29,12 +30,16 @@ using namespace std;
 #define ILLEGELPOINT		-1
 #define INITPOINT			{ ILLEGELPOINT, ILLEGELPOINT}
 
-#define CanvasMode			1		// 画布模式
-#define CoordinateMode		2		// 坐标模式
 #define DEFAULTSYSTEMMODE	{ CoordinateMode }
 
+typedef enum WorkType {
+	CanvasMode,
+	CoordinateMode,
+	ThreeDMode
+} WorkType;
+
 typedef struct SYSTEMMODE {
-	int worktype;
+	WorkType worktype;
 } SYSTEMMODE;
 
 bool HFPoint(const POINT* pt) {
@@ -90,6 +95,7 @@ bool InDrawDrawType(const DrawType& type) {
 	case CHOOSEN:
 	case MMOUSEMOVE:
 		return false;
+	case CUTIMG:
 	case KZDRAW:
 	case DRAWLINE:
 	case DRAWCIRCLE:
@@ -99,6 +105,8 @@ bool InDrawDrawType(const DrawType& type) {
 	case DRAWBCURVE:
 	case DRAWCURVE:
 		return true;
+	default:
+		return false;
 	}
 }
 

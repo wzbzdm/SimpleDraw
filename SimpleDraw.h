@@ -1,10 +1,7 @@
 #pragma once
 
 #include "resource.h"
-#include "drawinfo.h"
 #include "drawAny.h"
-#include "windowState.h"
-#include "calculateImg.h"
 
 #define DLLPATH		L"DLL"
 

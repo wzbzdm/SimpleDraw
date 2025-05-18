@@ -545,6 +545,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case OPENOK:
 				FitCanvasCoordinate(); // 适应坐标系
 				RedrawFixedContent(hCanvasWnd, hdcMemFixed);
+				RedrawCoSContent(hCanvasWnd, hdcMemCoS);
+				ClearContent(hdcMemPreview);
 				NeedRedraw();
 				break;
 			case DIALOGOPENFAILE:
