@@ -1,6 +1,5 @@
 #pragma once
 
-#include "drawinfo.h"
 #include "windowState.h"
 #include "calculateImg.h"
 #include <vector>

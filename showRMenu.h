@@ -1,6 +1,5 @@
 #pragma once
 
-#include "drawinfo.h"
 #include "windowState.h"
 #include <math.h>
 #include <vector>
